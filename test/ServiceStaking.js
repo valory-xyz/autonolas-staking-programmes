@@ -17,7 +17,6 @@ describe("ServiceStakingNativeToken", function () {
     let multiSend;
     let serviceStakingMechUsage;
     let serviceStakingTokenMechUsage;
-    let attacker;
     let signers;
     let deployer;
     let operator;
