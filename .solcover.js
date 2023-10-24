@@ -1,7 +1,8 @@
 module.exports = {
     skipFiles: [
+        "test/ABICreator.sol",
         "test/ERC20Token.sol",
-        "test/GnosisSafeABICreator.sol",
-        "test/MockAgentMech.sol"
+        "test/MockAgentMech.sol",
+        "test/SafeNonceLib.sol"
     ]
 };
