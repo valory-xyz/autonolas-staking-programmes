@@ -1,7 +1,7 @@
 # Internal audit of autonolas-staking-programmes
 The review has been performed based on the contract code in the following repository:<br>
 `https://github.com/valory-xyz/autonolas-staking-programmes` <br>
-commit: `v1.1.7.pre-internal-audit` <br> 
+commit: `v1.0.0-pre-internal-audit` <br> 
 
 ## Objectives
 The audit focused on contracts in this repo. <br>
