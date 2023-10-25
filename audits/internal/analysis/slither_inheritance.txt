@@ -1,0 +1,155 @@
+'solc --version' running
+'solc ./ServiceStakingMechUsage-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal/analysis/contracts' running
+'solc --version' running
+'solc ./ServiceStakingTokenMechUsage-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal/analysis/contracts' running
+'solc --version' running
+'solc ./MechAgentMod-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal/analysis/contracts' running
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IMultisig
+
++ IAgentMech
+
++ MechAgentMod
+
++ IErrorsRegistries
+
++ ERC721
+
++ ERC721TokenReceiver
+
++ IService
+
++ ServiceStakingBase
+ -> ERC721TokenReceiver, IErrorsRegistries
+
++ ServiceStakingNativeToken
+ -> ServiceStakingBase
+, [IErrorsRegistries, ERC721TokenReceiver]
+
++ ServiceStakingMechUsage
+ -> ServiceStakingNativeToken, MechAgentMod
+, [ServiceStakingBase, IErrorsRegistries, ERC721TokenReceiver]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IMultisig
+
++ IAgentMech
+
++ MechAgentMod
+ -> ServiceStakingMechUsage
+
++ IErrorsRegistries
+ -> ServiceStakingBase
+, [ServiceStakingNativeToken, ServiceStakingMechUsage]
+
++ ERC721
+
++ ERC721TokenReceiver
+ -> ServiceStakingBase
+, [ServiceStakingNativeToken, ServiceStakingMechUsage]
+
++ IService
+
++ ServiceStakingBase
+ -> ServiceStakingNativeToken
+, [ServiceStakingMechUsage]
+
++ ServiceStakingNativeToken
+ -> ServiceStakingMechUsage
+
++ ServiceStakingMechUsage
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IMultisig
+
++ IAgentMech
+
++ MechAgentMod
+
++ IToken
+
++ IErrorsRegistries
+
++ ERC721
+
++ ERC721TokenReceiver
+
++ IService
+
++ ServiceStakingBase
+ -> ERC721TokenReceiver, IErrorsRegistries
+
++ SafeTransferLib
+
++ IServiceTokenUtility
+
++ ServiceStakingToken
+ -> ServiceStakingBase
+, [IErrorsRegistries, ERC721TokenReceiver]
+
++ ServiceStakingTokenMechUsage
+ -> ServiceStakingToken, MechAgentMod
+, [ServiceStakingBase, IErrorsRegistries, ERC721TokenReceiver]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IMultisig
+
++ IAgentMech
+
++ MechAgentMod
+ -> ServiceStakingTokenMechUsage
+
++ IToken
+
++ IErrorsRegistries
+ -> ServiceStakingBase
+, [ServiceStakingToken, ServiceStakingTokenMechUsage]
+
++ ERC721
+
++ ERC721TokenReceiver
+ -> ServiceStakingBase
+, [ServiceStakingToken, ServiceStakingTokenMechUsage]
+
++ IService
+
++ ServiceStakingBase
+ -> ServiceStakingToken
+, [ServiceStakingTokenMechUsage]
+
++ SafeTransferLib
+
++ IServiceTokenUtility
+
++ ServiceStakingToken
+ -> ServiceStakingTokenMechUsage
+
++ ServiceStakingTokenMechUsage
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IMultisig
+
++ IAgentMech
+
++ MechAgentMod
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IMultisig
+
++ IAgentMech
+
++ MechAgentMod
+
+INFO:Slither:. analyzed (26 contracts)

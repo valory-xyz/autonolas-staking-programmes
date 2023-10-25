@@ -1,0 +1,194 @@
+Notes: False positive.
+INFO:Detectors:
+ServiceStakingBase.calculateServiceStakingReward(uint256) (ServiceStakingMechUsage-flatten.sol#975-1002) uses a dangerous strict equality:
+	- sInfo.tsStart == 0 (ServiceStakingMechUsage-flatten.sol#981)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+Notes: False positive.
+INFO:Detectors:
+ServiceStakingBase unstake parameter from is not related to msg.sender IService(serviceRegistry).safeTransferFrom(address(this),msg.sender,serviceId) (ServiceStakingMechUsage-flatten.sol#962)
+Reference: https://ventral.digital/posts/2022/8/18/sznsdaos-bountyboard-unauthorized-transferfrom-vulnerability
+
+Notes: False positive.
+INFO:Detectors:
+Function ServiceStakingNativeToken._withdraw(address,uint256) (ServiceStakingMechUsage-flatten.sol#1050-1059) contains a low level call to a custom address
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/call_forward_to_protected.md
+
+Notes: False positive.
+INFO:Detectors:
+Reentrancy in ServiceStakingBase.stake(uint256) (ServiceStakingMechUsage-flatten.sol#660-732):
+	External calls:
+	- IService(serviceRegistry).safeTransferFrom(msg.sender,address(this),serviceId) (ServiceStakingMechUsage-flatten.sol#729)
+	Event emitted after the call(s):
+	- ServiceStaked(serviceId,msg.sender,service.multisig,nonces) (ServiceStakingMechUsage-flatten.sol#731)
+Reentrancy in ServiceStakingBase.unstake(uint256) (ServiceStakingMechUsage-flatten.sol#923-970):
+	External calls:
+	- IService(serviceRegistry).safeTransferFrom(address(this),msg.sender,serviceId) (ServiceStakingMechUsage-flatten.sol#962)
+	Event emitted after the call(s):
+	- ServiceUnstaked(serviceId,msg.sender,multisig,nonces,reward,tsStart) (ServiceStakingMechUsage-flatten.sol#969)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+Notes: False positive.
+INFO:Detectors:
+ServiceStakingBase._isRatioPass(uint256[],uint256[],uint256) (ServiceStakingMechUsage-flatten.sol#751-763) uses timestamp for comparisons
+	Dangerous comparisons:
+	- ts > 0 && curNonces[0] > lastNonces[0] (ServiceStakingMechUsage-flatten.sol#759)
+	- ratioPass = (ratio >= livenessRatio) (ServiceStakingMechUsage-flatten.sol#761)
+ServiceStakingBase._calculateStakingRewards() (ServiceStakingMechUsage-flatten.sol#773-832) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp - tsCheckpointLast >= livenessPeriod && lastAvailableRewards > 0 (ServiceStakingMechUsage-flatten.sol#786)
+	- ts > serviceCheckpoint (ServiceStakingMechUsage-flatten.sol#812)
+ServiceStakingBase.calculateServiceStakingReward(uint256) (ServiceStakingMechUsage-flatten.sol#975-1002) uses timestamp for comparisons
+	Dangerous comparisons:
+	- sInfo.tsStart == 0 (ServiceStakingMechUsage-flatten.sol#981)
+ServiceStakingBase.isServiceStaked(uint256) (ServiceStakingMechUsage-flatten.sol#1020-1022) uses timestamp for comparisons
+	Dangerous comparisons:
+	- isStaked = (mapServiceInfo[serviceId].tsStart > 0) (ServiceStakingMechUsage-flatten.sol#1021)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+
+Notes: False positive.
+INFO:Detectors:
+ServiceStakingBase.stake(uint256) (ServiceStakingMechUsage-flatten.sol#660-732) has a high cyclomatic complexity (12).
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cyclomatic-complexity
+
+Notes: False positive.
+INFO:Detectors:
+ERC721._burn(uint256) (ServiceStakingMechUsage-flatten.sol#379-394) is never used and should be removed
+ERC721._mint(address,uint256) (ServiceStakingMechUsage-flatten.sol#364-377) is never used and should be removed
+ERC721._safeMint(address,uint256) (ServiceStakingMechUsage-flatten.sol#400-409) is never used and should be removed
+ERC721._safeMint(address,uint256,bytes) (ServiceStakingMechUsage-flatten.sol#411-424) is never used and should be removed
+ServiceStakingBase._getMultisigNonces(address) (ServiceStakingMechUsage-flatten.sol#737-740) is never used and should be removed
+ServiceStakingBase._isRatioPass(uint256[],uint256[],uint256) (ServiceStakingMechUsage-flatten.sol#751-763) is never used and should be removed
+ServiceStakingNativeToken._getMultisigNonces(address) (ServiceStakingMechUsage-flatten.sol#1076-1078) is never used and should be removed
+ServiceStakingNativeToken._isRatioPass(uint256[],uint256[],uint256) (ServiceStakingMechUsage-flatten.sol#1089-1096) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+Notes: False positive.
+INFO:Detectors:
+Low level call in ServiceStakingNativeToken._withdraw(address,uint256) (ServiceStakingMechUsage-flatten.sol#1050-1059):
+	- (result) = to.call{value: amount}() (ServiceStakingMechUsage-flatten.sol#1055)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+Notes: False positive.
+INFO:Detectors:
+Variable ERC721._ownerOf (ServiceStakingMechUsage-flatten.sol#238) is not in mixedCase
+Variable ERC721._balanceOf (ServiceStakingMechUsage-flatten.sol#240) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+Notes: False positive.
+INFO:Detectors:
+ERC721 (ServiceStakingMechUsage-flatten.sol#213-425) does not implement functions:
+	- ERC721.tokenURI(uint256) (ServiceStakingMechUsage-flatten.sol#232)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unimplemented-functions
+
+Notes: False positive.
+INFO:Detectors:
+IToken (ServiceStakingTokenMechUsage-flatten.sol#91-134) has incorrect ERC721 function interface:IToken.approve(address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#122)
+IToken (ServiceStakingTokenMechUsage-flatten.sol#91-134) has incorrect ERC721 function interface:IToken.transferFrom(address,address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#129)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-erc721-interface
+
+Notes: False positive.
+INFO:Detectors:
+ServiceStakingBase.calculateServiceStakingReward(uint256) (ServiceStakingTokenMechUsage-flatten.sol#1021-1048) uses a dangerous strict equality:
+	- sInfo.tsStart == 0 (ServiceStakingTokenMechUsage-flatten.sol#1027)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+Notes: False positive.
+INFO:Detectors:
+ServiceStakingBase unstake parameter from is not related to msg.sender IService(serviceRegistry).safeTransferFrom(address(this),msg.sender,serviceId) (ServiceStakingTokenMechUsage-flatten.sol#1008)
+Reference: https://ventral.digital/posts/2022/8/18/sznsdaos-bountyboard-unauthorized-transferfrom-vulnerability
+
+Notes: False positive.
+INFO:Detectors:
+Reentrancy in ServiceStakingBase.stake(uint256) (ServiceStakingTokenMechUsage-flatten.sol#706-778):
+	External calls:
+	- IService(serviceRegistry).safeTransferFrom(msg.sender,address(this),serviceId) (ServiceStakingTokenMechUsage-flatten.sol#775)
+	Event emitted after the call(s):
+	- ServiceStaked(serviceId,msg.sender,service.multisig,nonces) (ServiceStakingTokenMechUsage-flatten.sol#777)
+Reentrancy in ServiceStakingBase.unstake(uint256) (ServiceStakingTokenMechUsage-flatten.sol#969-1016):
+	External calls:
+	- IService(serviceRegistry).safeTransferFrom(address(this),msg.sender,serviceId) (ServiceStakingTokenMechUsage-flatten.sol#1008)
+	Event emitted after the call(s):
+	- ServiceUnstaked(serviceId,msg.sender,multisig,nonces,reward,tsStart) (ServiceStakingTokenMechUsage-flatten.sol#1015)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+INFO:Detectors:
+ServiceStakingBase._isRatioPass(uint256[],uint256[],uint256) (ServiceStakingTokenMechUsage-flatten.sol#797-809) uses timestamp for comparisons
+	Dangerous comparisons:
+	- ts > 0 && curNonces[0] > lastNonces[0] (ServiceStakingTokenMechUsage-flatten.sol#805)
+	- ratioPass = (ratio >= livenessRatio) (ServiceStakingTokenMechUsage-flatten.sol#807)
+ServiceStakingBase._calculateStakingRewards() (ServiceStakingTokenMechUsage-flatten.sol#819-878) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp - tsCheckpointLast >= livenessPeriod && lastAvailableRewards > 0 (ServiceStakingTokenMechUsage-flatten.sol#832)
+	- ts > serviceCheckpoint (ServiceStakingTokenMechUsage-flatten.sol#858)
+ServiceStakingBase.calculateServiceStakingReward(uint256) (ServiceStakingTokenMechUsage-flatten.sol#1021-1048) uses timestamp for comparisons
+	Dangerous comparisons:
+	- sInfo.tsStart == 0 (ServiceStakingTokenMechUsage-flatten.sol#1027)
+ServiceStakingBase.isServiceStaked(uint256) (ServiceStakingTokenMechUsage-flatten.sol#1066-1068) uses timestamp for comparisons
+	Dangerous comparisons:
+	- isStaked = (mapServiceInfo[serviceId].tsStart > 0) (ServiceStakingTokenMechUsage-flatten.sol#1067)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+
+Notes: False positive.
+INFO:Detectors:
+SafeTransferLib.safeTransferFrom(address,address,address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#1098-1129) uses assembly
+	- INLINE ASM (ServiceStakingTokenMechUsage-flatten.sol#1102-1124)
+SafeTransferLib.safeTransfer(address,address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#1140-1170) uses assembly
+	- INLINE ASM (ServiceStakingTokenMechUsage-flatten.sol#1144-1165)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
+
+Notes: False positive.
+INFO:Detectors:
+ServiceStakingBase.stake(uint256) (ServiceStakingTokenMechUsage-flatten.sol#706-778) has a high cyclomatic complexity (12).
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cyclomatic-complexity
+
+Notes: False positive.
+INFO:Detectors:
+ERC721._burn(uint256) (ServiceStakingTokenMechUsage-flatten.sol#425-440) is never used and should be removed
+ERC721._mint(address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#410-423) is never used and should be removed
+ERC721._safeMint(address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#446-455) is never used and should be removed
+ERC721._safeMint(address,uint256,bytes) (ServiceStakingTokenMechUsage-flatten.sol#457-470) is never used and should be removed
+ServiceStakingBase._checkTokenStakingDeposit(uint256,uint256) (ServiceStakingTokenMechUsage-flatten.sol#692-697) is never used and should be removed
+ServiceStakingBase._getMultisigNonces(address) (ServiceStakingTokenMechUsage-flatten.sol#783-786) is never used and should be removed
+ServiceStakingBase._isRatioPass(uint256[],uint256[],uint256) (ServiceStakingTokenMechUsage-flatten.sol#797-809) is never used and should be removed
+ServiceStakingToken._getMultisigNonces(address) (ServiceStakingTokenMechUsage-flatten.sol#1283-1285) is never used and should be removed
+ServiceStakingToken._isRatioPass(uint256[],uint256[],uint256) (ServiceStakingTokenMechUsage-flatten.sol#1296-1303) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+Notes: False positive.
+INFO:Detectors:
+Variable ERC721._ownerOf (ServiceStakingTokenMechUsage-flatten.sol#284) is not in mixedCase
+Variable ERC721._balanceOf (ServiceStakingTokenMechUsage-flatten.sol#286) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+Notes: False positive.
+INFO:Detectors:
+SafeTransferLib.safeTransferFrom(address,address,address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#1098-1129) uses literals with too many digits:
+	- mstore(uint256,uint256)(0,0x23b872dd00000000000000000000000000000000000000000000000000000000) (ServiceStakingTokenMechUsage-flatten.sol#1107)
+SafeTransferLib.safeTransfer(address,address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#1140-1170) uses literals with too many digits:
+	- mstore(uint256,uint256)(0,0xa9059cbb00000000000000000000000000000000000000000000000000000000) (ServiceStakingTokenMechUsage-flatten.sol#1149)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#too-many-digits
+
+Notes: False positive.
+INFO:Detectors:
+ERC721 (ServiceStakingTokenMechUsage-flatten.sol#259-471) does not implement functions:
+	- ERC721.tokenURI(uint256) (ServiceStakingTokenMechUsage-flatten.sol#278)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unimplemented-functions
+
+Notes: False positive.
+INFO:Detectors:
+Function SafeTransferLib.safeTransferFrom(address,address,address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#1098-1129) contains magic numbers: 4, 36, 68
+Function SafeTransferLib.safeTransfer(address,address,uint256) (ServiceStakingTokenMechUsage-flatten.sol#1140-1170) contains magic numbers: 4, 36
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+Notes: False positive.
+INFO:Detectors:
+MechAgentMod._getMultisigNonces(address) (MechAgentMod-flatten.sol#47-51) is never used and should be removed
+MechAgentMod._isRatioPass(uint256[],uint256[],uint256) (MechAgentMod-flatten.sol#69-87) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+INFO:Detectors:
+
+Notes: False positive.
+INFO:Detectors:
+MechAgentMod (MechAgentMod-flatten.sol#31-88) does not implement functions:
+	- MechAgentMod._getLivenessRatio() (MechAgentMod-flatten.sol#55)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unimplemented-functions

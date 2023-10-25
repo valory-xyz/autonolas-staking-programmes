@@ -1,0 +1,13 @@
+'solc --version' running
+'solc ./ServiceStakingMechUsage-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal/analysis/contracts' running
+'solc --version' running
+'solc ./ServiceStakingTokenMechUsage-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal/analysis/contracts' running
+'solc --version' running
+'solc ./MechAgentMod-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal/analysis/contracts' running
+INFO:Printers:Inheritance Graph: ./ServiceStakingMechUsage-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./ServiceStakingTokenMechUsage-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./MechAgentMod-flatten.sol.inheritance-graph.dot
+
+INFO:Slither:. analyzed (26 contracts)
