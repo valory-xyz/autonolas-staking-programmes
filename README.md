@@ -2,7 +2,7 @@
 
 ## Introduction
 This repository contains the Autonolas Staking Programmes set of contracts. It is built on top of a core service staking
-functionality of [autonolas-staking-programmes](https://github.com/valory-xyz/autonolas-staking-programmes).
+functionality of [autonolas-registries](https://github.com/valory-xyz/autonolas-registries).
 
 ## Development
 
