@@ -170,7 +170,7 @@ contract BaseSetup is Test {
     }
 }
 
-contract ServiceStaking is BaseSetup {
+contract ServiceStakingMechUsage is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
