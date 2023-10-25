@@ -12,8 +12,8 @@ import {ServiceRegistryTokenUtility} from "../lib/autonolas-registries/contracts
 import {ServiceManagerToken} from "../lib/autonolas-registries/contracts/ServiceManagerToken.sol";
 import {OperatorWhitelist} from "../lib/autonolas-registries/contracts/utils/OperatorWhitelist.sol";
 import {GnosisSafeMultisig} from "../lib/autonolas-registries/contracts/multisigs/GnosisSafeMultisig.sol";
-import {ServiceStakingMechUsage} from "../contracts/p1/ServiceStakingMechUsage.sol";
-import {ServiceStakingTokenMechUsage} from "../contracts/p1/ServiceStakingTokenMechUsage.sol";
+import {ServiceStakingMechUsage} from "../contracts/mech_usage/ServiceStakingMechUsage.sol";
+import {ServiceStakingTokenMechUsage} from "../contracts/mech_usage/ServiceStakingTokenMechUsage.sol";
 import {MockAgentMech} from "../contracts/test/MockAgentMech.sol";
 import {SafeNonceLib} from "../contracts/test/SafeNonceLib.sol";
 import {ServiceStakingBase} from "../lib/autonolas-registries/contracts/staking/ServiceStakingBase.sol";
@@ -170,7 +170,7 @@ contract BaseSetup is Test {
     }
 }
 
-contract ServiceStakingMechUsage is BaseSetup {
+contract ServiceStakingMechUsages is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
