@@ -11,8 +11,8 @@
   "olasAddress": "0xcE11e14225575945b8E6Dc0D4F2dD4C570f79d9f",
   "multisigProxyHash130": "0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
   "serviceStakingParams": {
-    "maxNumServices": "10",
-    "rewardsPerSecond": "1543209876543",
+    "maxNumServices": "50",
+    "rewardsPerSecond": "771604938271",
     "minStakingDeposit": "50000000000000000000",
     "livenessPeriod": "86400",
     "livenessRatio": "231481481481481",
