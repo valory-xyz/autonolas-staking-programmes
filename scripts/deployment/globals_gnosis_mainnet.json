@@ -13,7 +13,7 @@
   "serviceStakingParams": {
     "maxNumServices": "100",
     "rewardsPerSecond": "413359788359",
-    "minStakingDeposit": "50000000000000000000",
+    "minStakingDeposit": "25000000000000000000",
     "livenessPeriod": "86400",
     "livenessRatio": "231481481481481",
     "numAgentInstances": "1",
