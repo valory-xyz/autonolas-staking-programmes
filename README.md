@@ -55,10 +55,11 @@ Those include:
 - running tests
 
 ## Deployment
-The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment/configuration.json).
+The list of contract addresses for gnosis mainnet and a staking program configuration can be found here:
+[contracts](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment/globals_gnosis_mainnet.json).
 
 The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
-The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment/globals_gnosis_mainnet.json).
+The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment).
 
 The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/abis).
 Each folder there contains contracts compiled with the solidity version before their deployment.
