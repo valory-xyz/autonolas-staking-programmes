@@ -15,12 +15,12 @@
     "rewardsPerSecond": "1653439153439", 
     "minStakingDeposit": "25000000000000000000",
     "livenessPeriod": "86400",
-    "livenessRatio": "231481481481481",
+    "livenessRatio": "115740740740740",
     "numAgentInstances": "1",
     "agentIds": ["12"],
     "threshold": "0",
     "configHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
   },
   "agentMechAddress": "0x77af31De935740567Cf4fF1986D04B2c964A786a",
-  "serviceStakingTokenMechUsageAddress": "0x22bE6fDcd3e29851B29b512F714C328A00A96B83"
+  "serviceStakingTokenMechUsageAddress": ""
 }
