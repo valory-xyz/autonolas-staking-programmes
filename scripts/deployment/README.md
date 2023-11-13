@@ -25,6 +25,14 @@ Parameters of the `globals.json` file:
 - `useLedger`: a flag whether to use the hardware wallet (`true`) or proceed with the seed-phrase accounts (`false`);
 - `derivationPath`: a string with the derivation path;
 - `providerName`: a network type (see `hardhat.config.js` for the network configurations);
+- `serviceStakingParams`: a set of service staking parameters, which include:
+  - `rewardsPerSecond`: amount of token (in wei) per second credited to a service if the service is active enough. Assuming the maximum
+    number of reward per week is 1 OLAS (in ETH), then the reward per second is calculated by
+    [this formula](https://www.wolframalpha.com/input?i=1+*+10%5E18+%2F+%283600+*+24+*+7%29);
+  - `livenessRatio`: number of service multisig transactions per second (with 18 decimals) that are used to measure the service
+    liveness (activity). In other words, it's the minimum number of transactions the service multisig needs to perform in order
+    to pass the liveness check. To check this `rewardsPerSecond* livenessPeriod/1e18` should approximate the number of txs required per livenessPeriod. Assuming the number of required tx-s per day is 10, the liveness ratio can be checked by means of
+    [this formula](https://www.wolframalpha.com/input?i=%28115740740740740+*+60+*+60+*+24%29+%2F+10%5E18).
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
 - `deploy_01_service_staking_token_mech_usage.js` will complete step 1.
