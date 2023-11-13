@@ -29,7 +29,7 @@ Parameters of the `globals.json` file:
   - `rewardsPerSecond`: amount of token (in wei) per second credited to a service if the service is active enough. Assuming the maximum
     number of reward per week is 1 OLAS (in ETH), then the reward per second is calculated by
     [this formula](https://www.wolframalpha.com/input?i=1+*+10%5E18+%2F+%283600+*+24+*+7%29);
-  - `livenessRatio`: number of service multisig transactions per second (in 1e18 value) that are used to measure the service
+  - `livenessRatio`: number of service multisig transactions per second (with 18 decimals) that are used to measure the service
     liveness (activity). In other words, it's the minimum number of transactions the service multisig needs to perform in order
     to pass the liveness check. Assuming the number of required tx-s per day is 10, the liveness ratio is calculated by
     [this formula](https://www.wolframalpha.com/input?i=%28115740740740740+*+60+*+60+*+24%29+%2F+10%5E18).
