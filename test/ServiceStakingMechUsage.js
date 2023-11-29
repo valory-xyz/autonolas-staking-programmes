@@ -38,6 +38,7 @@ describe("ServiceStakingMechUsage", function () {
         maxNumServices: 10,
         rewardsPerSecond: "1" + "0".repeat(15),
         minStakingDeposit: 10,
+        maxNumInactivityPeriods: 3,
         livenessPeriod: livenessPeriod, // Ten seconds
         livenessRatio: "1" + "0".repeat(16), // 0.01 transaction per second (TPS)
         numAgentInstances: 1,
@@ -45,6 +46,7 @@ describe("ServiceStakingMechUsage", function () {
         threshold: 0,
         configHash: bytes32Zero
     };
+    const maxInactivity = serviceParams.maxNumInactivityPeriods * livenessPeriod + 1;
 
     beforeEach(async function () {
         signers = await ethers.getSigners();
@@ -173,15 +175,15 @@ describe("ServiceStakingMechUsage", function () {
             await serviceStakingMechUsage.stake(serviceId);
 
             // Check that the service is staked
-            const isStaked = await serviceStakingMechUsage.isServiceStaked(serviceId);
-            expect(isStaked).to.equal(true);
+            const stakingState = await serviceStakingMechUsage.getServiceStakingState(serviceId);
+            expect(stakingState).to.equal(1);
 
             // Get the service multisig contract
             const service = await serviceRegistry.getService(serviceId);
             const multisig = await ethers.getContractAt("GnosisSafe", service.multisig);
 
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(livenessPeriod);
+            await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be zero
             const reward = await serviceStakingMechUsage.calculateServiceStakingReward(serviceId);
@@ -217,8 +219,8 @@ describe("ServiceStakingMechUsage", function () {
             await serviceStakingMechUsage.stake(serviceId);
 
             // Check that the service is staked
-            const isStaked = await serviceStakingMechUsage.isServiceStaked(serviceId);
-            expect(isStaked).to.equal(true);
+            const stakingState = await serviceStakingMechUsage.getServiceStakingState(serviceId);
+            expect(stakingState).to.equal(1);
 
             // Get the service multisig contract
             const service = await serviceRegistry.getService(serviceId);
@@ -228,7 +230,7 @@ describe("ServiceStakingMechUsage", function () {
             await agentMech.increaseRequestsCount(service.multisig);
 
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(livenessPeriod);
+            await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be zero
             const reward = await serviceStakingMechUsage.calculateServiceStakingReward(serviceId);
@@ -280,7 +282,7 @@ describe("ServiceStakingMechUsage", function () {
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // Increase the time for the liveness period
-            await helpers.time.increase(livenessPeriod);
+            await helpers.time.increase(maxInactivity);
 
             // Call the checkpoint at this time
             await serviceStakingMechUsage.checkpoint();
@@ -292,7 +294,7 @@ describe("ServiceStakingMechUsage", function () {
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // Increase the time for the liveness period
-            await helpers.time.increase(livenessPeriod);
+            await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be greater than zero
             const reward = await serviceStakingMechUsage.calculateServiceStakingReward(serviceId);
@@ -373,7 +375,7 @@ describe("ServiceStakingMechUsage", function () {
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // Increase the time for the liveness period
-            await helpers.time.increase(livenessPeriod);
+            await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be greater than zero
             const reward = await serviceStakingTokenMechUsage.calculateServiceStakingReward(sId);
