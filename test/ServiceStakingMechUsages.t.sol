@@ -59,6 +59,8 @@ contract BaseSetup is Test {
     uint256 internal rewardsPerSecond = 0.0001 ether;
     // Minimum service staking deposit value required for staking
     uint256 internal minStakingDeposit = regDeposit;
+    // Max number of accumulated inactivity periods after which the service is evicted
+    uint256 internal maxNumInactivityPeriods = 3;
     // Liveness period
     uint256 internal livenessPeriod = 1 days;
     // Liveness ratio in the format of 1e18
@@ -107,7 +109,8 @@ contract BaseSetup is Test {
 
         // Deploy service staking native token and arbitrary ERC20 token
         ServiceStakingBase.StakingParams memory stakingParams = ServiceStakingBase.StakingParams(maxNumServices,
-            rewardsPerSecond, minStakingDeposit, livenessPeriod, livenessRatio, numAgentInstances, emptyArray, 0, bytes32(0));
+            rewardsPerSecond, minStakingDeposit, maxNumInactivityPeriods, livenessPeriod, livenessRatio,
+            numAgentInstances, emptyArray, 0, bytes32(0));
         agentMech = new MockAgentMech();
         serviceStakingMechUsage = new ServiceStakingMechUsage(stakingParams, address(serviceRegistry),
             multisigProxyHash, address(agentMech));
@@ -236,7 +239,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + 1 days);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
 
             // Call the checkpoint
             serviceStakingMechUsage.checkpoint();
@@ -246,7 +249,7 @@ contract ServiceStakingMechUsages is BaseSetup {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (!serviceStakingMechUsage.isServiceStaked(serviceId)) {
+                    if (uint8(serviceStakingMechUsage.getServiceStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
                         serviceStakingMechUsage.unstake(serviceId);
                         vm.stopPrank();
@@ -307,7 +310,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + 1 days);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
 
             // Call the checkpoint
             serviceStakingMechUsage.checkpoint();
@@ -317,7 +320,7 @@ contract ServiceStakingMechUsages is BaseSetup {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (!serviceStakingMechUsage.isServiceStaked(serviceId)) {
+                    if (uint8(serviceStakingMechUsage.getServiceStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
                         serviceStakingMechUsage.unstake(serviceId);
                         vm.stopPrank();
@@ -387,7 +390,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + 1 days);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
 
             // Call the checkpoint
             serviceStakingMechUsage.checkpoint();
@@ -397,7 +400,7 @@ contract ServiceStakingMechUsages is BaseSetup {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (!serviceStakingMechUsage.isServiceStaked(serviceId)) {
+                    if (uint8(serviceStakingMechUsage.getServiceStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
                         serviceStakingMechUsage.unstake(serviceId);
                         vm.stopPrank();
@@ -467,7 +470,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + 1 days);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
 
             // Call the checkpoint
             serviceStakingTokenMechUsage.checkpoint();
@@ -477,7 +480,7 @@ contract ServiceStakingMechUsages is BaseSetup {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + numServices + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (!serviceStakingTokenMechUsage.isServiceStaked(serviceId)) {
+                    if (uint8(serviceStakingTokenMechUsage.getServiceStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
                         serviceStakingTokenMechUsage.unstake(serviceId);
                         vm.stopPrank();
