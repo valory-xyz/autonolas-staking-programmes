@@ -55,6 +55,9 @@ Those include:
 - running tests
 
 ## Deployment
+The list of contract addresses for gnosis mainnet and a staking program configuration can be found here:
+[contracts](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment/globals_gnosis_mainnet.json).
+
 The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
 The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment).
 
