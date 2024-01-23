@@ -1,4 +1,4 @@
-pragma solidity =0.8.21;
+pragma solidity =0.8.23;
 
 import {IService} from "../lib/autonolas-registries/contracts/interfaces/IService.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
@@ -59,6 +59,8 @@ contract BaseSetup is Test {
     uint256 internal rewardsPerSecond = 0.0001 ether;
     // Minimum service staking deposit value required for staking
     uint256 internal minStakingDeposit = regDeposit;
+    // Min number of staking periods before the service can be unstaked
+    uint256 internal minNumStakingPeriods = 3;
     // Max number of accumulated inactivity periods after which the service is evicted
     uint256 internal maxNumInactivityPeriods = 3;
     // Liveness period
@@ -109,8 +111,8 @@ contract BaseSetup is Test {
 
         // Deploy service staking native token and arbitrary ERC20 token
         ServiceStakingBase.StakingParams memory stakingParams = ServiceStakingBase.StakingParams(maxNumServices,
-            rewardsPerSecond, minStakingDeposit, maxNumInactivityPeriods, livenessPeriod, livenessRatio,
-            numAgentInstances, emptyArray, 0, bytes32(0));
+            rewardsPerSecond, minStakingDeposit, minNumStakingPeriods, maxNumInactivityPeriods, livenessPeriod,
+            livenessRatio, numAgentInstances, emptyArray, 0, bytes32(0));
         agentMech = new MockAgentMech();
         serviceStakingMechUsage = new ServiceStakingMechUsage(stakingParams, address(serviceRegistry),
             multisigProxyHash, address(agentMech));
@@ -239,7 +241,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
 
             // Call the checkpoint
             serviceStakingMechUsage.checkpoint();
@@ -310,7 +312,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
 
             // Call the checkpoint
             serviceStakingMechUsage.checkpoint();
@@ -390,7 +392,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
 
             // Call the checkpoint
             serviceStakingMechUsage.checkpoint();
@@ -470,7 +472,7 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxAllowedInactivity() + 1);
+            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
 
             // Call the checkpoint
             serviceStakingTokenMechUsage.checkpoint();
