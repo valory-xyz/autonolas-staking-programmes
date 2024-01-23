@@ -38,6 +38,7 @@ describe("ServiceStakingMechUsage", function () {
         maxNumServices: 10,
         rewardsPerSecond: "1" + "0".repeat(15),
         minStakingDeposit: 10,
+        minNumStakingPeriods: 3,
         maxNumInactivityPeriods: 3,
         livenessPeriod: livenessPeriod, // Ten seconds
         livenessRatio: "1" + "0".repeat(16), // 0.01 transaction per second (TPS)
