@@ -19,7 +19,7 @@
     "livenessPeriod": "86400",
     "livenessRatio": "115740740740740",
     "numAgentInstances": "1",
-    "agentIds": ["12"],
+    "agentIds": ["14"],
     "threshold": "0",
     "configHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
   },
