@@ -4,7 +4,7 @@ const { ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 const safeContracts = require("@gnosis.pm/safe-contracts");
 
-describe("ServiceStakingMechUsage", function () {
+describe("StakingMechUsage", function () {
     let componentRegistry;
     let agentRegistry;
     let serviceRegistry;
@@ -14,17 +14,20 @@ describe("ServiceStakingMechUsage", function () {
     let gnosisSafe;
     let gnosisSafeProxyFactory;
     let gnosisSafeMultisig;
-    let multiSend;
-    let serviceStakingMechUsage;
-    let serviceStakingTokenMechUsage;
+    let stakingFactory;
+    let stakingImplementation;
+    let stakingTokenImplementation;
+    let stakingNativeToken;
+    let stakingToken;
+    let stakingActivityChecker;
     let signers;
     let deployer;
     let operator;
     let agentInstances;
     let bytecodeHash;
     const AddressZero = ethers.constants.AddressZero;
+    const HashZero = ethers.constants.HashZero;
     const defaultHash = "0x" + "5".repeat(64);
-    const bytes32Zero = "0x" + "0".repeat(64);
     const regDeposit = 1000;
     const regBond = 1000;
     const serviceId = 1;
@@ -34,18 +37,23 @@ describe("ServiceStakingMechUsage", function () {
     const livenessPeriod = 10; // Ten seconds
     const initSupply = "5" + "0".repeat(26);
     const payload = "0x";
-    const serviceParams = {
-        maxNumServices: 10,
+    const livenessRatio = "1" + "0".repeat(16); // 0.01 transaction per second (TPS)
+    let serviceParams = {
+        metadataHash: defaultHash,
+        maxNumServices: 3,
         rewardsPerSecond: "1" + "0".repeat(15),
         minStakingDeposit: 10,
         minNumStakingPeriods: 3,
         maxNumInactivityPeriods: 3,
         livenessPeriod: livenessPeriod, // Ten seconds
-        livenessRatio: "1" + "0".repeat(16), // 0.01 transaction per second (TPS)
+        timeForEmissions: 100,
         numAgentInstances: 1,
         agentIds: [],
         threshold: 0,
-        configHash: bytes32Zero
+        configHash: HashZero,
+        proxyHash: HashZero,
+        serviceRegistry: AddressZero,
+        activityChecker: AddressZero
     };
     const maxInactivity = serviceParams.maxNumInactivityPeriods * livenessPeriod + 1;
 
@@ -66,6 +74,7 @@ describe("ServiceStakingMechUsage", function () {
         serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", "https://localhost/service/",
             agentRegistry.address);
         await serviceRegistry.deployed();
+        serviceParams.serviceRegistry = serviceRegistry.address;
 
         const ServiceRegistryTokenUtility = await ethers.getContractFactory("ServiceRegistryTokenUtility");
         serviceRegistryTokenUtility = await ServiceRegistryTokenUtility.deploy(serviceRegistry.address);
@@ -96,20 +105,34 @@ describe("ServiceStakingMechUsage", function () {
         await gnosisSafeProxy.deployed();
         const bytecode = await ethers.provider.getCode(gnosisSafeProxy.address);
         bytecodeHash = ethers.utils.keccak256(bytecode);
+        serviceParams.proxyHash = bytecodeHash;
 
-        const MultiSend = await ethers.getContractFactory("MultiSendCallOnly");
-        multiSend = await MultiSend.deploy();
-        await multiSend.deployed();
+        const StakingFactory = await ethers.getContractFactory("StakingFactory");
+        stakingFactory = await StakingFactory.deploy(AddressZero);
+        await stakingFactory.deployed();
 
-        const ServiceStakingMechUsage = await ethers.getContractFactory("ServiceStakingMechUsage");
-        serviceStakingMechUsage = await ServiceStakingMechUsage.deploy(serviceParams, serviceRegistry.address,
-            bytecodeHash, agentMech.address);
-        await serviceStakingMechUsage.deployed();
+        const StakingActivityChecker = await ethers.getContractFactory("MechActivityChecker");
+        stakingActivityChecker = await StakingActivityChecker.deploy(agentMech.address, livenessRatio);
+        await stakingActivityChecker.deployed();
+        serviceParams.activityChecker = stakingActivityChecker.address;
 
-        const ServiceStakingTokenMechUsage = await ethers.getContractFactory("ServiceStakingTokenMechUsage");
-        serviceStakingTokenMechUsage = await ServiceStakingTokenMechUsage.deploy(serviceParams, serviceRegistry.address,
-            serviceRegistryTokenUtility.address, token.address, bytecodeHash, agentMech.address);
-        await serviceStakingTokenMechUsage.deployed();
+        const StakingNativeToken = await ethers.getContractFactory("StakingNativeToken");
+        stakingImplementation = await StakingNativeToken.deploy();
+        let initPayload = stakingImplementation.interface.encodeFunctionData("initialize",
+            [serviceParams]);
+        const stakingAddress = await stakingFactory.callStatic.createStakingInstance(
+            stakingImplementation.address, initPayload);
+        await stakingFactory.createStakingInstance(stakingImplementation.address, initPayload);
+        stakingNativeToken = await ethers.getContractAt("StakingNativeToken", stakingAddress);
+
+        const StakingToken = await ethers.getContractFactory("StakingToken");
+        stakingTokenImplementation = await StakingToken.deploy();
+        initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
+            [serviceParams, serviceRegistryTokenUtility.address, token.address]);
+        const stakingTokenAddress = await stakingFactory.callStatic.createStakingInstance(
+            stakingTokenImplementation.address, initPayload);
+        await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
+        stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
 
         // Set the deployer to be the unit manager by default
         await componentRegistry.changeManager(deployer.address);
@@ -148,16 +171,10 @@ describe("ServiceStakingMechUsage", function () {
 
     context("Initialization", function () {
         it("Should fail when deploying the contract with a zero agent mech address", async function () {
-            const ServiceStakingMechUsage = await ethers.getContractFactory("ServiceStakingMechUsage");
+            const StakingActivityChecker = await ethers.getContractFactory("MechActivityChecker");
             await expect(
-                ServiceStakingMechUsage.deploy(serviceParams, serviceRegistry.address, bytecodeHash, AddressZero)
-            ).to.be.revertedWithCustomError(ServiceStakingMechUsage, "ZeroMechAgentAddress");
-
-            const ServiceStakingTokenMechUsage = await ethers.getContractFactory("ServiceStakingTokenMechUsage");
-            await expect(
-                ServiceStakingTokenMechUsage.deploy(serviceParams, serviceRegistry.address,
-                    serviceRegistryTokenUtility.address, token.address, bytecodeHash, AddressZero)
-            ).to.be.revertedWithCustomError(ServiceStakingTokenMechUsage, "ZeroMechAgentAddress");
+                StakingActivityChecker.deploy(AddressZero, livenessRatio)
+            ).to.be.revertedWithCustomError(StakingActivityChecker, "ZeroMechAgentAddress");
         });
     });
 
@@ -167,16 +184,16 @@ describe("ServiceStakingMechUsage", function () {
             const snapshot = await helpers.takeSnapshot();
 
             // Deposit to the contract
-            await deployer.sendTransaction({to: serviceStakingMechUsage.address, value: ethers.utils.parseEther("1")});
+            await deployer.sendTransaction({to: stakingNativeToken.address, value: ethers.utils.parseEther("1")});
 
             // Approve services
-            await serviceRegistry.approve(serviceStakingMechUsage.address, serviceId);
+            await serviceRegistry.approve(stakingNativeToken.address, serviceId);
 
             // Stake the service
-            await serviceStakingMechUsage.stake(serviceId);
+            await stakingNativeToken.stake(serviceId);
 
             // Check that the service is staked
-            const stakingState = await serviceStakingMechUsage.getServiceStakingState(serviceId);
+            const stakingState = await stakingNativeToken.getStakingState(serviceId);
             expect(stakingState).to.equal(1);
 
             // Get the service multisig contract
@@ -187,19 +204,19 @@ describe("ServiceStakingMechUsage", function () {
             await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be zero
-            const reward = await serviceStakingMechUsage.calculateServiceStakingReward(serviceId);
+            const reward = await stakingNativeToken.calculateStakingReward(serviceId);
             expect(reward).to.equal(0);
 
             // Unstake the service
             const balanceBefore = await ethers.provider.getBalance(multisig.address);
-            await serviceStakingMechUsage.unstake(serviceId);
+            await stakingNativeToken.unstake(serviceId);
             const balanceAfter = await ethers.provider.getBalance(multisig.address);
 
             // The multisig balance before and after unstake must be the same (zero reward)
             expect(balanceBefore).to.equal(balanceAfter);
 
             // Check the final serviceIds set to be empty
-            const serviceIds = await serviceStakingMechUsage.getServiceIds();
+            const serviceIds = await stakingNativeToken.getServiceIds();
             expect(serviceIds.length).to.equal(0);
 
             // Restore a previous state of blockchain
@@ -211,16 +228,16 @@ describe("ServiceStakingMechUsage", function () {
             const snapshot = await helpers.takeSnapshot();
 
             // Deposit to the contract
-            await deployer.sendTransaction({to: serviceStakingMechUsage.address, value: ethers.utils.parseEther("1")});
+            await deployer.sendTransaction({to: stakingNativeToken.address, value: ethers.utils.parseEther("1")});
 
             // Approve services
-            await serviceRegistry.approve(serviceStakingMechUsage.address, serviceId);
+            await serviceRegistry.approve(stakingNativeToken.address, serviceId);
 
             // Stake the service
-            await serviceStakingMechUsage.stake(serviceId);
+            await stakingNativeToken.stake(serviceId);
 
             // Check that the service is staked
-            const stakingState = await serviceStakingMechUsage.getServiceStakingState(serviceId);
+            const stakingState = await stakingNativeToken.getStakingState(serviceId);
             expect(stakingState).to.equal(1);
 
             // Get the service multisig contract
@@ -234,19 +251,19 @@ describe("ServiceStakingMechUsage", function () {
             await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be zero
-            const reward = await serviceStakingMechUsage.calculateServiceStakingReward(serviceId);
+            const reward = await stakingNativeToken.calculateStakingReward(serviceId);
             expect(reward).to.equal(0);
 
             // Unstake the service
             const balanceBefore = await ethers.provider.getBalance(multisig.address);
-            await serviceStakingMechUsage.unstake(serviceId);
+            await stakingNativeToken.unstake(serviceId);
             const balanceAfter = await ethers.provider.getBalance(multisig.address);
 
             // The multisig balance before and after unstake must be the same (zero reward)
             expect(balanceBefore).to.equal(balanceAfter);
 
             // Check the final serviceIds set to be empty
-            const serviceIds = await serviceStakingMechUsage.getServiceIds();
+            const serviceIds = await stakingNativeToken.getServiceIds();
             expect(serviceIds.length).to.equal(0);
 
             // Restore a previous state of blockchain
@@ -258,13 +275,13 @@ describe("ServiceStakingMechUsage", function () {
             const snapshot = await helpers.takeSnapshot();
 
             // Deposit to the contract
-            await deployer.sendTransaction({to: serviceStakingMechUsage.address, value: ethers.utils.parseEther("1")});
+            await deployer.sendTransaction({to: stakingNativeToken.address, value: ethers.utils.parseEther("1")});
 
             // Approve services
-            await serviceRegistry.approve(serviceStakingMechUsage.address, serviceId);
+            await serviceRegistry.approve(stakingNativeToken.address, serviceId);
 
             // Stake the first service
-            await serviceStakingMechUsage.stake(serviceId);
+            await stakingNativeToken.stake(serviceId);
 
             // Get the service multisig contract
             const service = await serviceRegistry.getService(serviceId);
@@ -272,7 +289,8 @@ describe("ServiceStakingMechUsage", function () {
 
             // Make transactions by the service multisig to increase the requests count
             let nonce = await multisig.nonce();
-            let txHashData = await safeContracts.buildContractCall(agentMech, "increaseRequestsCount", [multisig.address], nonce, 0, 0);
+            let txHashData = await safeContracts.buildContractCall(agentMech, "increaseRequestsCount",
+                [multisig.address], nonce, 0, 0);
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
@@ -286,7 +304,7 @@ describe("ServiceStakingMechUsage", function () {
             await helpers.time.increase(maxInactivity);
 
             // Call the checkpoint at this time
-            await serviceStakingMechUsage.checkpoint();
+            await stakingNativeToken.checkpoint();
 
             // Execute one more multisig tx
             nonce = await multisig.nonce();
@@ -298,19 +316,19 @@ describe("ServiceStakingMechUsage", function () {
             await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be greater than zero
-            const reward = await serviceStakingMechUsage.calculateServiceStakingReward(serviceId);
+            const reward = await stakingNativeToken.calculateStakingReward(serviceId);
             expect(reward).to.greaterThan(0);
 
             // Unstake the service
             const balanceBefore = ethers.BigNumber.from(await ethers.provider.getBalance(multisig.address));
-            await serviceStakingMechUsage.unstake(serviceId);
+            await stakingNativeToken.unstake(serviceId);
             const balanceAfter = ethers.BigNumber.from(await ethers.provider.getBalance(multisig.address));
 
             // The balance before and after the unstake call must be different
             expect(balanceAfter).to.gt(balanceBefore);
 
             // Check the final serviceIds set to be empty
-            const serviceIds = await serviceStakingMechUsage.getServiceIds();
+            const serviceIds = await stakingNativeToken.getServiceIds();
             expect(serviceIds.length).to.equal(0);
 
             // Restore a previous state of blockchain
@@ -325,8 +343,8 @@ describe("ServiceStakingMechUsage", function () {
             await token.approve(serviceRegistryTokenUtility.address, initSupply);
             await token.connect(operator).approve(serviceRegistryTokenUtility.address, initSupply);
             // Approve and deposit token to the staking contract
-            await token.approve(serviceStakingTokenMechUsage.address, initSupply);
-            await serviceStakingTokenMechUsage.deposit(ethers.utils.parseEther("1"));
+            await token.approve(stakingToken.address, initSupply);
+            await stakingToken.deposit(ethers.utils.parseEther("1"));
 
             // Create a service with the token2 (service Id == 3)
             const sId = 3;
@@ -342,10 +360,10 @@ describe("ServiceStakingMechUsage", function () {
             await serviceRegistry.deploy(deployer.address, sId, gnosisSafeMultisig.address, payload);
 
             // Approve services
-            await serviceRegistry.approve(serviceStakingTokenMechUsage.address, sId);
+            await serviceRegistry.approve(stakingToken.address, sId);
 
             // Stake the first service
-            await serviceStakingTokenMechUsage.stake(sId);
+            await stakingToken.stake(sId);
 
             // Get the service multisig contract
             const service = await serviceRegistry.getService(sId);
@@ -353,7 +371,8 @@ describe("ServiceStakingMechUsage", function () {
 
             // Make transactions by the service multisig to increase the requests count
             let nonce = await multisig.nonce();
-            let txHashData = await safeContracts.buildContractCall(agentMech, "increaseRequestsCount", [multisig.address], nonce, 0, 0);
+            let txHashData = await safeContracts.buildContractCall(agentMech, "increaseRequestsCount",
+                [multisig.address], nonce, 0, 0);
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[2], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
@@ -367,7 +386,7 @@ describe("ServiceStakingMechUsage", function () {
             await helpers.time.increase(livenessPeriod);
 
             // Call the checkpoint at this time
-            await serviceStakingTokenMechUsage.checkpoint();
+            await stakingToken.checkpoint();
 
             // Execute one more multisig tx
             nonce = await multisig.nonce();
@@ -379,19 +398,19 @@ describe("ServiceStakingMechUsage", function () {
             await helpers.time.increase(maxInactivity);
 
             // Calculate service staking reward that must be greater than zero
-            const reward = await serviceStakingTokenMechUsage.calculateServiceStakingReward(sId);
+            const reward = await stakingToken.calculateStakingReward(sId);
             expect(reward).to.greaterThan(0);
 
             // Unstake the service
             const balanceBefore = ethers.BigNumber.from(await token.balanceOf(multisig.address));
-            await serviceStakingTokenMechUsage.unstake(sId);
+            await stakingToken.unstake(sId);
             const balanceAfter = ethers.BigNumber.from(await token.balanceOf(multisig.address));
 
             // The balance before and after the unstake call must be different
             expect(balanceAfter.gt(balanceBefore));
 
             // Check the final serviceIds set to be empty
-            const serviceIds = await serviceStakingTokenMechUsage.getServiceIds();
+            const serviceIds = await stakingToken.getServiceIds();
             expect(serviceIds.length).to.equal(0);
 
             // Restore a previous state of blockchain

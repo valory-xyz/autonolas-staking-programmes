@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
+
+import {StakingActivityChecker} from "../../lib/autonolas-registries/contracts/staking/StakingActivityChecker.sol";
 
 // Multisig interface
 interface IMultisig {
@@ -19,17 +21,18 @@ interface IAgentMech {
 /// @dev Provided zero mech agent address.
 error ZeroMechAgentAddress();
 
-/// @title MechAgentMod - Abstract smart contract for AI agent mech staking modification
+/// @title MechAgentMod - Smart contract for AI agent mech staking modification
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-abstract contract MechAgentMod {
+contract MechActivityChecker is StakingActivityChecker{
     // AI agent mech contract address.
     address public immutable agentMech;
 
     /// @dev MechAgentMod constructor.
     /// @param _agentMech AI agent mech contract address.
-    constructor(address _agentMech) {
+    /// @param _livenessRatio Liveness ratio in the format of 1e18.
+    constructor(address _agentMech, uint256 _livenessRatio) StakingActivityChecker(_livenessRatio) {
         if (_agentMech == address(0)) {
             revert ZeroMechAgentAddress();
         }
@@ -39,15 +42,11 @@ abstract contract MechAgentMod {
     /// @dev Gets service multisig nonces.
     /// @param multisig Service multisig address.
     /// @return nonces Set of a nonce and a requests count for the multisig.
-    function _getMultisigNonces(address multisig) internal view virtual returns (uint256[] memory nonces) {
+    function getMultisigNonces(address multisig) external view virtual override returns (uint256[] memory nonces) {
         nonces = new uint256[](2);
         nonces[0] = IMultisig(multisig).nonce();
         nonces[1] = IAgentMech(agentMech).getRequestsCount(multisig);
     }
-
-    /// @dev Gets the liveness ratio.
-    /// @return Liveness ratio.
-    function _getLivenessRatio() internal view virtual returns (uint256);
 
     /// @dev Checks if the service multisig liveness ratio passes the defined liveness threshold.
     /// @notice The formula for calculating the ratio is the following:
@@ -61,11 +60,11 @@ abstract contract MechAgentMod {
     /// @param lastNonces Last service multisig set of nonce and requests count.
     /// @param ts Time difference between current and last timestamps.
     /// @return ratioPass True, if the liveness ratio passes the check.
-    function _isRatioPass(
+    function isRatioPass(
         uint256[] memory curNonces,
         uint256[] memory lastNonces,
         uint256 ts
-    ) internal view virtual returns (bool ratioPass)
+    ) external view virtual override returns (bool ratioPass)
     {
         // If the checkpoint was called in the exact same block, the ratio is zero
         // If the current nonce is not greater than the last nonce, the ratio is zero
@@ -76,7 +75,7 @@ abstract contract MechAgentMod {
             // Requests counts difference must be less or equal to the nonce difference
             if (diffRequestsCounts <= diffNonces) {
                 uint256 ratio = (diffRequestsCounts * 1e18) / ts;
-                ratioPass = (ratio >= _getLivenessRatio());
+                ratioPass = (ratio >= livenessRatio);
             }
         }
     }

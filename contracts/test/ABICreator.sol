@@ -12,3 +12,6 @@ import "../../lib/autonolas-registries/contracts/AgentRegistry.sol";
 import "../../lib/autonolas-registries/contracts/ServiceRegistry.sol";
 import "../../lib/autonolas-registries/contracts/ServiceRegistryTokenUtility.sol";
 import "../../lib/autonolas-registries/contracts/multisigs/GnosisSafeMultisig.sol";
+import {StakingFactory} from "../../lib/autonolas-registries/contracts/staking/StakingFactory.sol";
+import {StakingToken} from "../../lib/autonolas-registries/contracts/staking/StakingToken.sol";
+import {StakingNativeToken} from "../../lib/autonolas-registries/contracts/staking/StakingNativeToken.sol";
