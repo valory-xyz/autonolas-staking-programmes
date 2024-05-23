@@ -45,7 +45,7 @@ async function main() {
     // Get StakingFactory contract instance
     const stakingFactory = await ethers.getContractAt("StakingFactory", stakingFactoryAddress);
     // Get StakingToken implementation contract instance
-    const stakingNativeToken = await ethers.getContractAt("StakingToken", stakingNativeTokenAddress);
+    const stakingNativeToken = await ethers.getContractAt("StakingNativeToken", stakingNativeTokenAddress);
 
     // Transaction signing and execution
     console.log("22. EOA to deploy StakingNativeTokenInstance via the StakingFactory");
