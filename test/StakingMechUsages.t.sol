@@ -1,4 +1,4 @@
-pragma solidity =0.8.23;
+pragma solidity =0.8.25;
 
 import {IService} from "../lib/autonolas-registries/contracts/interfaces/IService.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
@@ -12,11 +12,14 @@ import {ServiceRegistryTokenUtility} from "../lib/autonolas-registries/contracts
 import {ServiceManagerToken} from "../lib/autonolas-registries/contracts/ServiceManagerToken.sol";
 import {OperatorWhitelist} from "../lib/autonolas-registries/contracts/utils/OperatorWhitelist.sol";
 import {GnosisSafeMultisig} from "../lib/autonolas-registries/contracts/multisigs/GnosisSafeMultisig.sol";
-import {ServiceStakingMechUsage} from "../contracts/mech_usage/ServiceStakingMechUsage.sol";
-import {ServiceStakingTokenMechUsage} from "../contracts/mech_usage/ServiceStakingTokenMechUsage.sol";
 import {MockAgentMech} from "../contracts/test/MockAgentMech.sol";
 import {SafeNonceLib} from "../contracts/test/SafeNonceLib.sol";
-import {ServiceStakingBase} from "../lib/autonolas-registries/contracts/staking/ServiceStakingBase.sol";
+import {StakingNativeToken} from "../lib/autonolas-registries/contracts/staking/StakingNativeToken.sol";
+import {StakingToken} from "../lib/autonolas-registries/contracts/staking/StakingToken.sol";
+import {StakingBase} from "../lib/autonolas-registries/contracts/staking/StakingBase.sol";
+import {StakingVerifier} from "../lib/autonolas-registries/contracts/staking/StakingVerifier.sol";
+import {StakingFactory} from "../lib/autonolas-registries/contracts/staking/StakingFactory.sol";
+import {MechActivityChecker} from "../contracts/mech_usage/MechActivityChecker.sol";
 
 contract BaseSetup is Test {
     Utils internal utils;
@@ -29,8 +32,13 @@ contract BaseSetup is Test {
     GnosisSafeProxy internal gnosisSafeProxy;
     GnosisSafeProxyFactory internal gnosisSafeProxyFactory;
     GnosisSafeMultisig internal gnosisSafeMultisig;
-    ServiceStakingMechUsage internal serviceStakingMechUsage;
-    ServiceStakingTokenMechUsage internal serviceStakingTokenMechUsage;
+    StakingNativeToken internal stakingNativeTokenImplementation;
+    StakingNativeToken internal stakingNativeToken;
+    StakingToken internal stakingTokenImplementation;
+    StakingToken internal stakingToken;
+    StakingVerifier internal stakingVerifier;
+    StakingFactory internal stakingFactory;
+    MechActivityChecker internal mechActivityChecker;
     MockAgentMech internal agentMech;
     SafeNonceLib internal safeNonceLib;
 
@@ -65,6 +73,8 @@ contract BaseSetup is Test {
     uint256 internal maxNumInactivityPeriods = 3;
     // Liveness period
     uint256 internal livenessPeriod = 1 days;
+    // Time for emissions
+    uint256 internal timeForEmissions = 1 weeks;
     // Liveness ratio in the format of 1e18
     uint256 internal livenessRatio = 0.0001 ether; // One nonce in 3 hours
     // Number of agent instances in the service
@@ -109,15 +119,39 @@ contract BaseSetup is Test {
         // Get the multisig proxy bytecode hash
         bytes32 multisigProxyHash = keccak256(address(gnosisSafeProxy).code);
 
-        // Deploy service staking native token and arbitrary ERC20 token
-        ServiceStakingBase.StakingParams memory stakingParams = ServiceStakingBase.StakingParams(maxNumServices,
-            rewardsPerSecond, minStakingDeposit, minNumStakingPeriods, maxNumInactivityPeriods, livenessPeriod,
-            livenessRatio, numAgentInstances, emptyArray, 0, bytes32(0));
+        // Agent mech
         agentMech = new MockAgentMech();
-        serviceStakingMechUsage = new ServiceStakingMechUsage(stakingParams, address(serviceRegistry),
-            multisigProxyHash, address(agentMech));
-        serviceStakingTokenMechUsage = new ServiceStakingTokenMechUsage(stakingParams, address(serviceRegistry),
-            address(serviceRegistryTokenUtility), address(token), multisigProxyHash, address(agentMech));
+
+        // Deploy service staking verifier
+        stakingVerifier = new StakingVerifier(address(token), rewardsPerSecond, timeForEmissions, maxNumServices);
+
+        // Deploy service staking factory
+        stakingFactory = new StakingFactory(address(0));
+
+        // Deploy MechActivityChecker (staking activity checker)
+        mechActivityChecker = new MechActivityChecker(address(agentMech), livenessRatio);
+
+        // Deploy service staking native token and arbitrary ERC20 token
+        StakingBase.StakingParams memory stakingParams = StakingBase.StakingParams(
+            bytes32(uint256(uint160(address(msg.sender)))), maxNumServices, rewardsPerSecond, minStakingDeposit,
+            minNumStakingPeriods, maxNumInactivityPeriods, livenessPeriod, timeForEmissions, numAgentInstances,
+            emptyArray, 0, bytes32(0), multisigProxyHash, address(serviceRegistry), address(mechActivityChecker));
+        stakingNativeTokenImplementation = new StakingNativeToken();
+        stakingTokenImplementation = new StakingToken();
+
+        // Initialization payload and deployment of stakingNativeToken
+        bytes memory initPayload = abi.encodeWithSelector(stakingNativeTokenImplementation.initialize.selector,
+            stakingParams, address(serviceRegistry), multisigProxyHash);
+        stakingNativeToken = StakingNativeToken(stakingFactory.createStakingInstance(
+            address(stakingNativeTokenImplementation), initPayload));
+
+        // Set the stakingVerifier
+        stakingFactory.changeVerifier(address(stakingVerifier));
+        // Initialization payload and deployment of stakingToken
+        initPayload = abi.encodeWithSelector(stakingTokenImplementation.initialize.selector,
+            stakingParams, address(serviceRegistryTokenUtility), address(token));
+        stakingToken = StakingToken(stakingFactory.createStakingInstance(
+            address(stakingTokenImplementation), initPayload));
 
         // Whitelist multisig implementations
         serviceRegistry.changeMultisigPermission(address(gnosisSafeMultisig), true);
@@ -175,7 +209,7 @@ contract BaseSetup is Test {
     }
 }
 
-contract ServiceStakingMechUsages is BaseSetup {
+contract StakingMechUsages is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
@@ -185,14 +219,14 @@ contract ServiceStakingMechUsages is BaseSetup {
     /// @param numNonces Number of nonces per day.
     function testNoncesLimited(uint8 numNonces) external {
         // Send funds to a native token staking contract
-        address(serviceStakingMechUsage).call{value: 100 ether}("");
+        address(stakingNativeToken).call{value: 100 ether}("");
 
         // Stake services
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = i + 1;
             vm.startPrank(deployer);
-            serviceRegistry.approve(address(serviceStakingMechUsage), serviceId);
-            serviceStakingMechUsage.stake(serviceId);
+            serviceRegistry.approve(address(stakingNativeToken), serviceId);
+            stakingNativeToken.stake(serviceId);
             vm.stopPrank();
         }
 
@@ -241,19 +275,19 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
+            vm.warp(block.timestamp + stakingNativeToken.maxInactivityDuration() + 1);
 
             // Call the checkpoint
-            serviceStakingMechUsage.checkpoint();
+            stakingNativeToken.checkpoint();
 
             // Unstake if there are no available rewards
-            if (serviceStakingMechUsage.availableRewards() == 0) {
+            if (stakingNativeToken.availableRewards() == 0) {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (uint8(serviceStakingMechUsage.getServiceStakingState(serviceId)) > 0) {
+                    if (uint8(stakingNativeToken.getStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
-                        serviceStakingMechUsage.unstake(serviceId);
+                        stakingNativeToken.unstake(serviceId);
                         vm.stopPrank();
                     }
                 }
@@ -265,14 +299,14 @@ contract ServiceStakingMechUsages is BaseSetup {
     /// @param numNonces Number of nonces to increase / decrease per day.
     function testManipulateNonces(uint128 numNonces) external {
         // Send funds to a native token staking contract
-        address(serviceStakingMechUsage).call{value: 100 ether}("");
+        address(stakingNativeToken).call{value: 100 ether}("");
 
         // Stake services
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = i + 1;
             vm.startPrank(deployer);
-            serviceRegistry.approve(address(serviceStakingMechUsage), serviceId);
-            serviceStakingMechUsage.stake(serviceId);
+            serviceRegistry.approve(address(stakingNativeToken), serviceId);
+            stakingNativeToken.stake(serviceId);
             vm.stopPrank();
         }
 
@@ -312,19 +346,19 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
+            vm.warp(block.timestamp + stakingNativeToken.maxInactivityDuration() + 1);
 
             // Call the checkpoint
-            serviceStakingMechUsage.checkpoint();
+            stakingNativeToken.checkpoint();
 
             // Unstake if there are no available rewards
-            if (serviceStakingMechUsage.availableRewards() == 0) {
+            if (stakingNativeToken.availableRewards() == 0) {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (uint8(serviceStakingMechUsage.getServiceStakingState(serviceId)) > 0) {
+                    if (uint8(stakingNativeToken.getStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
-                        serviceStakingMechUsage.unstake(serviceId);
+                        stakingNativeToken.unstake(serviceId);
                         vm.stopPrank();
                     }
                 }
@@ -336,14 +370,14 @@ contract ServiceStakingMechUsages is BaseSetup {
     /// @param numNonces Number of nonces per day.
     function testNoncesAgentMech(uint8 numNonces) external {
         // Send funds to a native token staking contract
-        address(serviceStakingMechUsage).call{value: 100 ether}("");
+        address(stakingNativeToken).call{value: 100 ether}("");
 
         // Stake services
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = i + 1;
             vm.startPrank(deployer);
-            serviceRegistry.approve(address(serviceStakingMechUsage), serviceId);
-            serviceStakingMechUsage.stake(serviceId);
+            serviceRegistry.approve(address(stakingNativeToken), serviceId);
+            stakingNativeToken.stake(serviceId);
             vm.stopPrank();
         }
 
@@ -392,19 +426,19 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
+            vm.warp(block.timestamp + stakingNativeToken.maxInactivityDuration() + 1);
 
             // Call the checkpoint
-            serviceStakingMechUsage.checkpoint();
+            stakingNativeToken.checkpoint();
 
             // Unstake if there are no available rewards
-            if (serviceStakingMechUsage.availableRewards() == 0) {
+            if (stakingNativeToken.availableRewards() == 0) {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (uint8(serviceStakingMechUsage.getServiceStakingState(serviceId)) > 0) {
+                    if (uint8(stakingNativeToken.getStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
-                        serviceStakingMechUsage.unstake(serviceId);
+                        stakingNativeToken.unstake(serviceId);
                         vm.stopPrank();
                     }
                 }
@@ -416,15 +450,15 @@ contract ServiceStakingMechUsages is BaseSetup {
     /// @param numNonces Number of nonces per day.
     function testNoncesTokenAgentMech(uint8 numNonces) external {
         // Send tokens to a ERC20 token staking contract
-        token.approve(address(serviceStakingTokenMechUsage), 100 ether);
-        serviceStakingTokenMechUsage.deposit(100 ether);
+        token.approve(address(stakingToken), 100 ether);
+        stakingToken.deposit(100 ether);
 
         // Stake services
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = i + numServices + 1;
             vm.startPrank(deployer);
-            serviceRegistry.approve(address(serviceStakingTokenMechUsage), serviceId);
-            serviceStakingTokenMechUsage.stake(serviceId);
+            serviceRegistry.approve(address(stakingToken), serviceId);
+            stakingToken.stake(serviceId);
             vm.stopPrank();
         }
 
@@ -472,19 +506,19 @@ contract ServiceStakingMechUsages is BaseSetup {
             }
 
             // Move one day ahead
-            vm.warp(block.timestamp + serviceStakingMechUsage.maxInactivityDuration() + 1);
+            vm.warp(block.timestamp + stakingNativeToken.maxInactivityDuration() + 1);
 
             // Call the checkpoint
-            serviceStakingTokenMechUsage.checkpoint();
+            stakingToken.checkpoint();
 
             // Unstake if there are no available rewards
-            if (serviceStakingTokenMechUsage.availableRewards() == 0) {
+            if (stakingToken.availableRewards() == 0) {
                 for (uint256 j = 0; j < numServices; ++j) {
                     uint256 serviceId = j + numServices + 1;
                     // Unstake if the service is not yet unstaked, otherwise ignore
-                    if (uint8(serviceStakingTokenMechUsage.getServiceStakingState(serviceId)) > 0) {
+                    if (uint8(stakingToken.getStakingState(serviceId)) > 0) {
                         vm.startPrank(deployer);
-                        serviceStakingTokenMechUsage.unstake(serviceId);
+                        stakingToken.unstake(serviceId);
                         vm.stopPrank();
                     }
                 }
