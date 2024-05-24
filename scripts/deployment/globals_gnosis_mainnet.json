@@ -14,7 +14,7 @@
   "stakingNativeTokenAddress": "",
   "stakingTokenAddress": "",
   "agentMechAddress": "0x77af31De935740567Cf4fF1986D04B2c964A786a",
-  "livenessRatio": "700000000000000",
+  "livenessRatio": "46296296296296",
   "mechActivityCheckerAddress": "",
   "stakingVerifierAddress": "0x00000000000000000000000000000000000000000",
   "stakingFactoryAddress": "",
