@@ -11,15 +11,22 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
-    const stakingParams = parsedData.stakingParams;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const serviceRegistryTokenUtilityAddress = parsedData.serviceRegistryTokenUtilityAddress;
-    const olasAddress = parsedData.olasAddress;
-    const stakingTokenAddress = parsedData.stakingTokenAddress;
-    const stakingFactoryAddress = parsedData.stakingFactoryAddress;
+    const livenessRatio = parsedData.livenessRatio;
 
     let networkURL = parsedData.networkURL;
-    if (providerName === "polygon") {
+    if (providerName === "mainnet") {
+        if (!process.env.ALCHEMY_API_KEY_MAINNET) {
+            console.log("set ALCHEMY_API_KEY_MAINNET env variable");
+        }
+        networkURL += process.env.ALCHEMY_API_KEY_MAINNET;
+    } else if (providerName === "sepolia") {
+        if (!process.env.ALCHEMY_API_KEY_SEPOLIA) {
+            console.log("set ALCHEMY_API_KEY_SEPOLIA env variable");
+            return;
+        }
+        networkURL += process.env.ALCHEMY_API_KEY_SEPOLIA;
+    } else if (providerName === "polygon") {
         if (!process.env.ALCHEMY_API_KEY_MATIC) {
             console.log("set ALCHEMY_API_KEY_MATIC env variable");
         }
@@ -45,39 +52,30 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Get StakingFactory contract instance
-    const stakingFactory = await ethers.getContractAt("StakingFactory", stakingFactoryAddress);
-    // Get StakingToken implementation contract instance
-    const stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
-
     // Transaction signing and execution
-    console.log("21. EOA to deploy StakingTokenInstance via the StakingFactory");
-    console.log("You are signing the following transaction: StakingFactory.connect(EOA).createStakingInstance()");
+    console.log("18. EOA to deploy StakingActivityChecker");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const initPayload = stakingToken.interface.encodeFunctionData("initialize", [stakingParams,
-        serviceRegistryTokenUtilityAddress, olasAddress]);
-    const result = await stakingFactory.createStakingInstance(stakingTokenAddress, initPayload, { gasPrice });
-    let res = await result.wait();
-    // Get staking contract instance address from the event
-    const stakingTokenInstanceAddress = "0x" + res.logs[0].topics[2].slice(26);
-
+    const StakingActivityChecker = await ethers.getContractFactory("StakingActivityChecker");
+    console.log("You are signing the following transaction: StakingActivityChecker.connect(EOA).deploy()");
+    const stakingActivityChecker = await StakingActivityChecker.connect(EOA).deploy(livenessRatio,
+        { gasPrice });
+    const result = await stakingActivityChecker.deployed();
 
     // Transaction details
-    console.log("Contract deployment: StakingProxy");
-    console.log("Contract address:", stakingTokenInstanceAddress);
-    console.log("Transaction:", result.hash);
-
+    console.log("Contract deployment: StakingActivityChecker");
+    console.log("Contract address:", stakingActivityChecker.address);
+    console.log("Transaction:", result.deployTransaction.hash);
     // Wait half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.stakingTokenInstanceAddress = stakingTokenInstanceAddress;
+    parsedData.stakingActivityCheckerAddress = stakingActivityChecker.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_02_staking_token_instance.js --network " + providerName + " " + stakingTokenInstanceAddress, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/l2/verify_18_service_staking_activity_checker.js --network " + providerName + " " + stakingActivityChecker.address, { encoding: "utf-8" });
     }
 }
 
