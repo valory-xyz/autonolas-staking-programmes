@@ -120,18 +120,20 @@ describe("StakingMechUsage", function () {
         stakingImplementation = await StakingNativeToken.deploy();
         let initPayload = stakingImplementation.interface.encodeFunctionData("initialize",
             [serviceParams]);
-        const stakingAddress = await stakingFactory.callStatic.createStakingInstance(
-            stakingImplementation.address, initPayload);
-        await stakingFactory.createStakingInstance(stakingImplementation.address, initPayload);
+        let tx = await stakingFactory.createStakingInstance(stakingImplementation.address, initPayload);
+        let res = await tx.wait();
+        // Get staking contract instance address from the event
+        const stakingAddress = "0x" + res.logs[0].topics[2].slice(26);
         stakingNativeToken = await ethers.getContractAt("StakingNativeToken", stakingAddress);
 
         const StakingToken = await ethers.getContractFactory("StakingToken");
         stakingTokenImplementation = await StakingToken.deploy();
         initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
             [serviceParams, serviceRegistryTokenUtility.address, token.address]);
-        const stakingTokenAddress = await stakingFactory.callStatic.createStakingInstance(
-            stakingTokenImplementation.address, initPayload);
-        await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
+        tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
+        res = await tx.wait();
+        // Get staking contract instance address from the event
+        const stakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
         stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
 
         // Set the deployer to be the unit manager by default
