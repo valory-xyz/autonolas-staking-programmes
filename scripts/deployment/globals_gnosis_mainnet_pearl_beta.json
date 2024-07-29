@@ -1,10 +1,10 @@
 {
   "contractVerification":true,
-  "useLedger":false,
+  "useLedger":true,
   "derivationPath":"m/44'/60'/2'/0/0",
   "providerName":"gnosis",
   "networkURL":"https://rpc.gnosischain.com",
-  "gasPriceInGwei":"15",
+  "gasPriceInGwei":"4",
   "gnosisSafeAddress":"0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552",
   "gnosisSafeProxyFactoryAddress":"0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
   "serviceRegistryAddress":"0x9338b5153AE39BB89f50468E608eD9d764B755fD",
