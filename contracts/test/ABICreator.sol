@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 // Getting ABIs for the Gnosis Safe master copy and proxy contracts
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
@@ -15,3 +15,4 @@ import "../../lib/autonolas-registries/contracts/multisigs/GnosisSafeMultisig.so
 import {StakingFactory} from "../../lib/autonolas-registries/contracts/staking/StakingFactory.sol";
 import {StakingToken} from "../../lib/autonolas-registries/contracts/staking/StakingToken.sol";
 import {StakingNativeToken} from "../../lib/autonolas-registries/contracts/staking/StakingNativeToken.sol";
+import {StakingActivityChecker} from "../../lib/autonolas-registries/contracts/staking/StakingActivityChecker.sol";

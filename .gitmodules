@@ -1,6 +1,7 @@
 [submodule "lib/autonolas-registries"]
 	path = lib/autonolas-registries
 	url = https://github.com/valory-xyz/autonolas-registries.git
+	tag = v1.2.2
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
