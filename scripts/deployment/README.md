@@ -25,11 +25,17 @@ Parameters of the `globals.json` file:
 - `useLedger`: a flag whether to use the hardware wallet (`true`) or proceed with the seed-phrase accounts (`false`);
 - `derivationPath`: a string with the derivation path;
 - `providerName`: a network type (see `hardhat.config.js` for the network configurations);
-- `agentMechAddress`: an agent mech address:
+- `networkURL`: a network RPC URL;
+- `agentMechAddress`: an agent mech address;
 - `livenessRatio`: number of service multisig transactions per second (with 18 decimals) that are used to measure the service
     liveness (activity). In other words, it's the minimum number of transactions the service multisig needs to perform in order
     to pass the liveness check. To check this `rewardsPerSecond* livenessPeriod/1e18` should approximate the number of txs required per livenessPeriod.
-    Assuming the number of required tx-s per day is 10, the liveness ratio can be checked by means of [this formula](https://www.wolframalpha.com/input?i=%28115740740740740+*+60+*+60+*+24%29+%2F+10%5E18).
+    Assuming the number of required tx-s per day is 10, the liveness ratio can be checked by means of [this formula](https://www.wolframalpha.com/input?i=%28115740740740740+*+60+*+60+*+24%29+%2F+10%5E18);
+- `mechActivityCheckerAddress`: a mech activity checker contract address that is currently deployed using `agentMechAddress`
+    and `livenessRatio` values;
+- `stakingTokenAddress`: a staking token implementation address all the instances are created with when deploying a proxy staking contract;
+- `stakingFactoryAddress`: a staking proxy factory that creates each proxy staking contract;
+- `stakingParams`: a set of staking contract parameters used to initiate each staking proxy contract. See [here](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/StakingSmartContracts.pdf) for more details.
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
 - `deploy_01_mech_activity_checker.js` will complete step 1.
@@ -39,6 +45,9 @@ Export network-related API keys defined in `hardhat.config.js` file that corresp
 To run the script, use the following command:
 `npx hardhat run scripts/deployment/script_name --network network_type`,
 where `script_name` is a script name, i.e. `deploy_01_mech_activity_checker.js`, `network_type` is a network type corresponding to the `hardhat.config.js` network configuration.
+
+Note: consider creating mech activity checker contract customized for specific needs, if the default one does not serve
+the purpose for staking. Then, deploy staking proxy instances [here](https://launch.olas.network/).
 
 ## Validity checks and contract verification
 Each script controls the obtained values by checking them against the expected ones. Also, each script has a contract verification procedure.
