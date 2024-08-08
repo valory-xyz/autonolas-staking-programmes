@@ -8,7 +8,7 @@ functionality of [autonolas-registries](https://github.com/valory-xyz/autonolas-
 
 ### Prerequisites
 - This repository follows the standard [`Hardhat`](https://hardhat.org/tutorial/) development process.
-- The code is written on Solidity `0.8.21`.
+- The code is written starting from Solidity `0.8.21`.
 - The standard versions of Node.js along with Yarn are required to proceed further (confirmed to work with Yarn `1.22.19` and npx/npm `10.1.0` and node `v18.17.0`).
 
 ### Install the dependencies
@@ -55,8 +55,8 @@ Those include:
 - running tests
 
 ## Deployment
-The list of contract addresses for gnosis mainnet and a staking program configuration can be found here:
-[contracts](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment/globals_gnosis_mainnet.json).
+The list of contract addresses for different networks and corresponding staking program configurations can be found in JSON files here:
+[contracts](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment).
 
 The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
 The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment).
@@ -66,6 +66,10 @@ Each folder there contains contracts compiled with the solidity version before t
 
 ### Audits
 The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits).
+
+### Related UI to facilitate staking contract creation
+- Create staking proxy instance on [Launch](https://launch.olas.network/);
+- Vote for staking contracts on [Govern](https://govern.olas.network/).
 
 
 ## Acknowledgements
