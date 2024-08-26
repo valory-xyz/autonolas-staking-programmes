@@ -10,33 +10,33 @@ interface IMultisig {
     function nonce() external view returns (uint256);
 }
 
-// AgentMech interface
-interface IAgentMech {
-    /// @dev Gets the deliveries count for a specific account.
+// Mech Marketplace interface
+interface IMechMarketplace {
+    /// @dev Gets the requests count for a specific account.
     /// @param account Account address.
-    /// @return Deliveries count.
-    function getDeliveriesCount(address account) external view returns (uint256)
+    /// @return requestsCount Requests count.
+    function getRequestsCount(address account) external view returns (uint256 requestsCount);
 }
 
 /// @dev Provided zero mech agent address.
 error ZeroMechAgentAddress();
 
-/// @title MechActivityChecker - Smart contract for mech staking activity checking
+/// @title RequesterActivityChecker - Smart contract for requester staking activity checking
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract MechActivityChecker is StakingActivityChecker{
-    // AI agent mech contract address.
-    address public immutable agentMech;
+contract RequesterActivityChecker is StakingActivityChecker{
+    // AI agent mech marketplace contract address.
+    address public immutable mechMarketplace;
 
     /// @dev MechAgentMod constructor.
-    /// @param _agentMech AI agent mech contract address.
+    /// @param _mechMarketplace AI agent mech marketplace contract address.
     /// @param _livenessRatio Liveness ratio in the format of 1e18.
-    constructor(address _agentMech, uint256 _livenessRatio) StakingActivityChecker(_livenessRatio) {
-        if (_agentMech == address(0)) {
+    constructor(address _mechMarketplace, uint256 _livenessRatio) StakingActivityChecker(_livenessRatio) {
+        if (_mechMarketplace == address(0)) {
             revert ZeroMechAgentAddress();
         }
-        agentMech = _agentMech;
+        mechMarketplace = _mechMarketplace;
     }
 
     /// @dev Gets service multisig nonces.
@@ -45,7 +45,7 @@ contract MechActivityChecker is StakingActivityChecker{
     function getMultisigNonces(address multisig) external view virtual override returns (uint256[] memory nonces) {
         nonces = new uint256[](2);
         nonces[0] = IMultisig(multisig).nonce();
-        nonces[1] = IAgentMech(agentMech).getDeliveriesCount(multisig);
+        nonces[1] = IMechMarketplace(mechMarketplace).getRequestsCount(multisig);
     }
 
     /// @dev Checks if the service multisig liveness ratio passes the defined liveness threshold.
