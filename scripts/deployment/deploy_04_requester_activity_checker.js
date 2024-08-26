@@ -12,7 +12,7 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const agentMechAddress = parsedData.agentMechAddress;
+    const mechMarketplaceAddress = parsedData.mechMarketplaceAddress;
     const livenessRatio = parsedData.livenessRatio;
 
     let networkURL = parsedData.networkURL;
