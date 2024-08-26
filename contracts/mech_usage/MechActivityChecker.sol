@@ -15,7 +15,7 @@ interface IAgentMech {
     /// @dev Gets the deliveries count for a specific account.
     /// @param account Account address.
     /// @return Deliveries count.
-    function getDeliveriesCount(address account) external view returns (uint256)
+    function getDeliveriesCount(address account) external view returns (uint256);
 }
 
 /// @dev Provided zero mech agent address.
