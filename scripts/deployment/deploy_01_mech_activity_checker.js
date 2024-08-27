@@ -12,7 +12,7 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const agentMechAddress = parsedData.agentMechAddress;
+    const mechMarketplaceAddress = parsedData.mechMarketplaceAddress;
     const livenessRatio = parsedData.livenessRatio;
 
     let networkURL = parsedData.networkURL;
@@ -47,7 +47,7 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const MechActivityChecker = await ethers.getContractFactory("MechActivityChecker");
     console.log("You are signing the following transaction: MechActivityChecker.connect(EOA).deploy()");
-    const mechActivityChecker = await MechActivityChecker.connect(EOA).deploy(agentMechAddress, livenessRatio,
+    const mechActivityChecker = await MechActivityChecker.connect(EOA).deploy(mechMarketplaceAddress, livenessRatio,
         { gasPrice });
     const result = await mechActivityChecker.deployed();
 
