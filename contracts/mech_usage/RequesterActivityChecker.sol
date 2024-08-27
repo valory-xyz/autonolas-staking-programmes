@@ -18,8 +18,8 @@ interface IMechMarketplace {
     function getRequestsCount(address account) external view returns (uint256 requestsCount);
 }
 
-/// @dev Provided zero mech agent address.
-error ZeroMechAgentAddress();
+/// @dev Provided zero address.
+error ZeroAddress();
 
 /// @title RequesterActivityChecker - Smart contract for requester staking activity checking
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -29,12 +29,12 @@ contract RequesterActivityChecker is StakingActivityChecker{
     // AI agent mech marketplace contract address.
     address public immutable mechMarketplace;
 
-    /// @dev MechAgentMod constructor.
+    /// @dev RequesterActivityChecker constructor.
     /// @param _mechMarketplace AI agent mech marketplace contract address.
     /// @param _livenessRatio Liveness ratio in the format of 1e18.
     constructor(address _mechMarketplace, uint256 _livenessRatio) StakingActivityChecker(_livenessRatio) {
         if (_mechMarketplace == address(0)) {
-            revert ZeroMechAgentAddress();
+            revert ZeroAddress();
         }
         mechMarketplace = _mechMarketplace;
     }

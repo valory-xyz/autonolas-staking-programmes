@@ -39,7 +39,7 @@ contract BaseSetup is Test {
     StakingVerifier internal stakingVerifier;
     StakingFactory internal stakingFactory;
     RequesterActivityChecker internal requesterActivityChecker;
-    MockAgentMech internal agentMech;
+    MockAgentMech internal mechMarketplace;
     SafeNonceLib internal safeNonceLib;
 
     address payable[] internal users;
@@ -122,7 +122,7 @@ contract BaseSetup is Test {
         bytes32 multisigProxyHash = keccak256(address(gnosisSafeProxy).code);
 
         // Agent mech
-        agentMech = new MockAgentMech();
+        mechMarketplace = new MockAgentMech();
 
         // Deploy service staking verifier
         stakingVerifier = new StakingVerifier(address(token), address(serviceRegistry),
@@ -132,7 +132,7 @@ contract BaseSetup is Test {
         stakingFactory = new StakingFactory(address(0));
 
         // Deploy RequesterActivityChecker (staking activity checker)
-        requesterActivityChecker = new RequesterActivityChecker(address(agentMech), livenessRatio);
+        requesterActivityChecker = new RequesterActivityChecker(address(mechMarketplace), livenessRatio);
 
         // Deploy service staking native token and arbitrary ERC20 token
         StakingBase.StakingParams memory stakingParams = StakingBase.StakingParams(
@@ -248,7 +248,7 @@ contract StakingMechUsages is BaseSetup {
 
                 // Post a specified number of requests
                 for (uint8 n = 0; n < numRequests; ++n) {
-                    agentMech.increaseRequestsCount(service.multisig);
+                    mechMarketplace.increaseRequestsCount(service.multisig);
                 }
 
                 // Get the nonce before
@@ -399,7 +399,7 @@ contract StakingMechUsages is BaseSetup {
 
                 // Post a specified number of requests
                 for (uint8 n = 0; n < numRequests; ++n) {
-                    agentMech.increaseRequestsCount(service.multisig);
+                    mechMarketplace.increaseRequestsCount(service.multisig);
                 }
 
                 // Get the nonce before
@@ -480,7 +480,7 @@ contract StakingMechUsages is BaseSetup {
 
                 // Post a specified number of requests
                 for (uint8 n = 0; n < numRequests; ++n) {
-                    agentMech.increaseRequestsCount(service.multisig);
+                    mechMarketplace.increaseRequestsCount(service.multisig);
                 }
 
                 // Get the nonce before
