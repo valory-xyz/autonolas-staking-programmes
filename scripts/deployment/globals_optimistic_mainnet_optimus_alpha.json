@@ -2,7 +2,7 @@
   "contractVerification":true,
   "useLedger":true,
   "derivationPath":"m/44'/60'/2'/0/0",
-  "providerName":"gnosis",
+  "providerName":"optimistic",
   "networkURL":"https://mainnet.optimism.io",
   "gasPriceInGwei":"2",
   "gnosisSafeAddress":"0x69f4D1788e39c87893C980c06EdF4b7f686e2938",
