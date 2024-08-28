@@ -19,7 +19,7 @@ import {StakingToken} from "../lib/autonolas-registries/contracts/staking/Stakin
 import {StakingBase} from "../lib/autonolas-registries/contracts/staking/StakingBase.sol";
 import {StakingVerifier} from "../lib/autonolas-registries/contracts/staking/StakingVerifier.sol";
 import {StakingFactory} from "../lib/autonolas-registries/contracts/staking/StakingFactory.sol";
-import {MechActivityChecker} from "../contracts/mech_usage/MechActivityChecker.sol";
+import {RequesterActivityChecker} from "../contracts/mech_usage/RequesterActivityChecker.sol";
 
 contract BaseSetup is Test {
     Utils internal utils;
@@ -38,8 +38,8 @@ contract BaseSetup is Test {
     StakingToken internal stakingToken;
     StakingVerifier internal stakingVerifier;
     StakingFactory internal stakingFactory;
-    MechActivityChecker internal mechActivityChecker;
-    MockAgentMech internal agentMech;
+    RequesterActivityChecker internal requesterActivityChecker;
+    MockAgentMech internal mechMarketplace;
     SafeNonceLib internal safeNonceLib;
 
     address payable[] internal users;
@@ -122,7 +122,7 @@ contract BaseSetup is Test {
         bytes32 multisigProxyHash = keccak256(address(gnosisSafeProxy).code);
 
         // Agent mech
-        agentMech = new MockAgentMech();
+        mechMarketplace = new MockAgentMech();
 
         // Deploy service staking verifier
         stakingVerifier = new StakingVerifier(address(token), address(serviceRegistry),
@@ -131,14 +131,14 @@ contract BaseSetup is Test {
         // Deploy service staking factory
         stakingFactory = new StakingFactory(address(0));
 
-        // Deploy MechActivityChecker (staking activity checker)
-        mechActivityChecker = new MechActivityChecker(address(agentMech), livenessRatio);
+        // Deploy RequesterActivityChecker (staking activity checker)
+        requesterActivityChecker = new RequesterActivityChecker(address(mechMarketplace), livenessRatio);
 
         // Deploy service staking native token and arbitrary ERC20 token
         StakingBase.StakingParams memory stakingParams = StakingBase.StakingParams(
             bytes32(uint256(uint160(address(msg.sender)))), maxNumServices, rewardsPerSecond, minStakingDeposit,
             minNumStakingPeriods, maxNumInactivityPeriods, livenessPeriod, timeForEmissions, numAgentInstances,
-            emptyArray, 0, bytes32(0), multisigProxyHash, address(serviceRegistry), address(mechActivityChecker));
+            emptyArray, 0, bytes32(0), multisigProxyHash, address(serviceRegistry), address(requesterActivityChecker));
         stakingNativeTokenImplementation = new StakingNativeToken();
         stakingTokenImplementation = new StakingToken();
 
@@ -248,7 +248,7 @@ contract StakingMechUsages is BaseSetup {
 
                 // Post a specified number of requests
                 for (uint8 n = 0; n < numRequests; ++n) {
-                    agentMech.increaseRequestsCount(service.multisig);
+                    mechMarketplace.increaseRequestsCount(service.multisig);
                 }
 
                 // Get the nonce before
@@ -399,7 +399,7 @@ contract StakingMechUsages is BaseSetup {
 
                 // Post a specified number of requests
                 for (uint8 n = 0; n < numRequests; ++n) {
-                    agentMech.increaseRequestsCount(service.multisig);
+                    mechMarketplace.increaseRequestsCount(service.multisig);
                 }
 
                 // Get the nonce before
@@ -480,7 +480,7 @@ contract StakingMechUsages is BaseSetup {
 
                 // Post a specified number of requests
                 for (uint8 n = 0; n < numRequests; ++n) {
-                    agentMech.increaseRequestsCount(service.multisig);
+                    mechMarketplace.increaseRequestsCount(service.multisig);
                 }
 
                 // Get the nonce before

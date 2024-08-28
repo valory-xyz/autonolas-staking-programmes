@@ -10,7 +10,7 @@ describe("StakingMechUsage", function () {
     let serviceRegistry;
     let serviceRegistryTokenUtility;
     let token;
-    let agentMech;
+    let mechMarketplace;
     let gnosisSafe;
     let gnosisSafeProxyFactory;
     let gnosisSafeMultisig;
@@ -19,7 +19,8 @@ describe("StakingMechUsage", function () {
     let stakingTokenImplementation;
     let stakingNativeToken;
     let stakingToken;
-    let stakingActivityChecker;
+    let requesterActivityChecker;
+    let mechActivityChecker;
     let signers;
     let deployer;
     let operator;
@@ -85,8 +86,8 @@ describe("StakingMechUsage", function () {
         await token.deployed();
 
         const AgentMech = await ethers.getContractFactory("MockAgentMech");
-        agentMech = await AgentMech.deploy();
-        await agentMech.deployed();
+        mechMarketplace = await AgentMech.deploy();
+        await mechMarketplace.deployed();
 
         const GnosisSafe = await ethers.getContractFactory("GnosisSafe");
         gnosisSafe = await GnosisSafe.deploy();
@@ -111,10 +112,14 @@ describe("StakingMechUsage", function () {
         stakingFactory = await StakingFactory.deploy(AddressZero);
         await stakingFactory.deployed();
 
-        const StakingActivityChecker = await ethers.getContractFactory("MechActivityChecker");
-        stakingActivityChecker = await StakingActivityChecker.deploy(agentMech.address, livenessRatio);
-        await stakingActivityChecker.deployed();
-        serviceParams.activityChecker = stakingActivityChecker.address;
+        const RequesterActivityChecker = await ethers.getContractFactory("RequesterActivityChecker");
+        requesterActivityChecker = await RequesterActivityChecker.deploy(mechMarketplace.address, livenessRatio);
+        await requesterActivityChecker.deployed();
+        serviceParams.activityChecker = requesterActivityChecker.address;
+
+        const MechActivityChecker = await ethers.getContractFactory("MechActivityChecker");
+        mechActivityChecker = await MechActivityChecker.deploy(mechMarketplace.address, livenessRatio);
+        await mechActivityChecker.deployed();
 
         const StakingNativeToken = await ethers.getContractFactory("StakingNativeToken");
         stakingImplementation = await StakingNativeToken.deploy();
@@ -176,7 +181,7 @@ describe("StakingMechUsage", function () {
             const StakingActivityChecker = await ethers.getContractFactory("MechActivityChecker");
             await expect(
                 StakingActivityChecker.deploy(AddressZero, livenessRatio)
-            ).to.be.revertedWithCustomError(StakingActivityChecker, "ZeroMechAgentAddress");
+            ).to.be.revertedWithCustomError(StakingActivityChecker, "ZeroAddress");
         });
     });
 
@@ -247,7 +252,7 @@ describe("StakingMechUsage", function () {
             const multisig = await ethers.getContractAt("GnosisSafe", service.multisig);
 
             // Increase the requests count, but the nonce is not increased
-            await agentMech.increaseRequestsCount(service.multisig);
+            await mechMarketplace.increaseRequestsCount(service.multisig);
 
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
@@ -291,7 +296,7 @@ describe("StakingMechUsage", function () {
 
             // Make transactions by the service multisig to increase the requests count
             let nonce = await multisig.nonce();
-            let txHashData = await safeContracts.buildContractCall(agentMech, "increaseRequestsCount",
+            let txHashData = await safeContracts.buildContractCall(mechMarketplace, "increaseRequestsCount",
                 [multisig.address], nonce, 0, 0);
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
@@ -337,6 +342,79 @@ describe("StakingMechUsage", function () {
             snapshot.restore();
         });
 
+        it("Stake and unstake with the service activity and deliveries count", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            serviceParams.activityChecker = mechActivityChecker.address;
+            let initPayload = stakingImplementation.interface.encodeFunctionData("initialize", [serviceParams]);
+            let tx = await stakingFactory.createStakingInstance(stakingImplementation.address, initPayload);
+            let res = await tx.wait();
+            // Get staking contract instance address from the event
+            const stakingAddress = "0x" + res.logs[0].topics[2].slice(26);
+            const mechStakingNativeToken = await ethers.getContractAt("StakingNativeToken", stakingAddress);
+
+            // Deposit to the contract
+            await deployer.sendTransaction({to: mechStakingNativeToken.address, value: ethers.utils.parseEther("1")});
+
+            // Approve services
+            await serviceRegistry.approve(mechStakingNativeToken.address, serviceId);
+
+            // Stake the first service
+            await mechStakingNativeToken.stake(serviceId);
+
+            // Get the service multisig contract
+            const service = await serviceRegistry.getService(serviceId);
+            const multisig = await ethers.getContractAt("GnosisSafe", service.multisig);
+
+            // Make transactions by the service multisig to increase the requests count
+            let nonce = await multisig.nonce();
+            let txHashData = await safeContracts.buildContractCall(mechMarketplace, "increaseMechServiceDeliveriesCount",
+                [multisig.address], nonce, 0, 0);
+            let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Execute one more multisig tx (simulating request execution tx)
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
+            signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Increase the time for the liveness period
+            await helpers.time.increase(maxInactivity);
+
+            // Call the checkpoint at this time
+            await mechStakingNativeToken.checkpoint();
+
+            // Execute one more multisig tx
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
+            signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Increase the time for the liveness period
+            await helpers.time.increase(maxInactivity);
+
+            // Calculate service staking reward that must be greater than zero
+            const reward = await mechStakingNativeToken.calculateStakingReward(serviceId);
+            expect(reward).to.greaterThan(0);
+
+            // Unstake the service
+            const balanceBefore = ethers.BigNumber.from(await ethers.provider.getBalance(multisig.address));
+            await mechStakingNativeToken.unstake(serviceId);
+            const balanceAfter = ethers.BigNumber.from(await ethers.provider.getBalance(multisig.address));
+
+            // The balance before and after the unstake call must be different
+            expect(balanceAfter).to.gt(balanceBefore);
+
+            // Check the final serviceIds set to be empty
+            const serviceIds = await mechStakingNativeToken.getServiceIds();
+            expect(serviceIds.length).to.equal(0);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
         it("Stake and unstake with the service activity with a custom ERC20 token", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
@@ -373,7 +451,7 @@ describe("StakingMechUsage", function () {
 
             // Make transactions by the service multisig to increase the requests count
             let nonce = await multisig.nonce();
-            let txHashData = await safeContracts.buildContractCall(agentMech, "increaseRequestsCount",
+            let txHashData = await safeContracts.buildContractCall(mechMarketplace, "increaseRequestsCount",
                 [multisig.address], nonce, 0, 0);
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[2], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);

@@ -12,24 +12,24 @@ interface IMultisig {
 
 // Mech Marketplace interface
 interface IMechMarketplace {
-    /// @dev Gets deliveries count for a specific mech service multisig.
-    /// @param mechService Agent mech service multisig address.
-    /// @return Deliveries count.
-    function getMechServiceDeliveriesCount(address mechService) external view returns (uint256);
+    /// @dev Gets the requests count for a specific account.
+    /// @param account Account address.
+    /// @return requestsCount Requests count.
+    function getRequestsCount(address account) external view returns (uint256 requestsCount);
 }
 
 /// @dev Provided zero address.
 error ZeroAddress();
 
-/// @title MechActivityChecker - Smart contract for mech staking activity checking
+/// @title RequesterActivityChecker - Smart contract for requester staking activity checking
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract MechActivityChecker is StakingActivityChecker{
+contract RequesterActivityChecker is StakingActivityChecker{
     // AI agent mech marketplace contract address.
     address public immutable mechMarketplace;
 
-    /// @dev MechActivityChecker constructor.
+    /// @dev RequesterActivityChecker constructor.
     /// @param _mechMarketplace AI agent mech marketplace contract address.
     /// @param _livenessRatio Liveness ratio in the format of 1e18.
     constructor(address _mechMarketplace, uint256 _livenessRatio) StakingActivityChecker(_livenessRatio) {
@@ -38,14 +38,14 @@ contract MechActivityChecker is StakingActivityChecker{
         }
         mechMarketplace = _mechMarketplace;
     }
-    
+
     /// @dev Gets service multisig nonces.
     /// @param multisig Service multisig address.
-    /// @return nonces Set of a nonce and a deliveries count for the multisig.
+    /// @return nonces Set of a nonce and a requests count for the multisig.
     function getMultisigNonces(address multisig) external view virtual override returns (uint256[] memory nonces) {
         nonces = new uint256[](2);
         nonces[0] = IMultisig(multisig).nonce();
-        nonces[1] = IMechMarketplace(mechMarketplace).getMechServiceDeliveriesCount(multisig);
+        nonces[1] = IMechMarketplace(mechMarketplace).getRequestsCount(multisig);
     }
 
     /// @dev Checks if the service multisig liveness ratio passes the defined liveness threshold.
