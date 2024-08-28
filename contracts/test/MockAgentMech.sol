@@ -12,7 +12,7 @@ contract MockAgentMech {
     // Map of requests counts for corresponding requester
     mapping (address => uint256) public mapDeliveryCounts;
     // Map of requests counts for corresponding operator
-    mapping (address => uint256) public mapOperatorDeliveryCounts;
+    mapping (address => uint256) public mapMechServiceDeliveryCounts;
 
 
     function increaseRequestsCount(address account) external {
@@ -25,9 +25,9 @@ contract MockAgentMech {
         emit deliveriesCountIncreased(account, mapDeliveryCounts[account]);
     }
 
-    function increaseOperatorDeliveriesCount(address operator) external {
-        mapOperatorDeliveryCounts[operator]++;
-        emit operatorDeliveriesCountIncreased(operator, mapOperatorDeliveryCounts[operator]);
+    function increaseMechServiceDeliveriesCount(address operator) external {
+        mapMechServiceDeliveryCounts[operator]++;
+        emit operatorDeliveriesCountIncreased(operator, mapMechServiceDeliveryCounts[operator]);
     }
 
     function getRequestsCount(address account) external view returns (uint256) {
@@ -38,7 +38,7 @@ contract MockAgentMech {
         return mapDeliveryCounts[account];
     }
 
-    function getOperatorDeliveriesCount(address account) external view returns (uint256) {
-        return mapOperatorDeliveryCounts[account];
+    function getMechServiceDeliveriesCount(address account) external view returns (uint256) {
+        return mapMechServiceDeliveryCounts[account];
     }
 }

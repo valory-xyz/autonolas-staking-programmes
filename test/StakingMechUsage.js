@@ -369,7 +369,7 @@ describe("StakingMechUsage", function () {
 
             // Make transactions by the service multisig to increase the requests count
             let nonce = await multisig.nonce();
-            let txHashData = await safeContracts.buildContractCall(mechMarketplace, "increaseOperatorDeliveriesCount",
+            let txHashData = await safeContracts.buildContractCall(mechMarketplace, "increaseMechServiceDeliveriesCount",
                 [multisig.address], nonce, 0, 0);
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
