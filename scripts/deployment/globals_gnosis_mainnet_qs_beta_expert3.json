@@ -15,11 +15,11 @@
   "stakingTokenAddress":"0xEa00be6690a871827fAfD705440D20dd75e67AB1",
   "agentMechAddress":"0x77af31De935740567Cf4fF1986D04B2c964A786a",
   "livenessRatio":"462962962962963",
-  "mechActivityCheckerAddress":"0x87E6a97bD97D41904B1125A014B16bec50C6A89D",
+  "stakingActivityCheckerAddress":"0x87E6a97bD97D41904B1125A014B16bec50C6A89D",
   "stakingFactoryAddress":"0xb0228CA253A88Bc8eb4ca70BCAC8f87b381f4700",
   "stakingParams":
     {
-      "metadataHash":"",
+      "metadataHash":"0xb1162195b60dcb8d873b8fa292d5d870ecc11eb9444871edcd5bc9d11a4e7ace",
       "maxNumServices":"20",
       "rewardsPerSecond":"87962962963040",
       "minStakingDeposit":"1000000000000000000000",
