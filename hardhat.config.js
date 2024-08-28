@@ -33,6 +33,7 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY;
 const GNOSISSCAN_API_KEY = process.env.GNOSISSCAN_API_KEY;
 const CHIADOSCAN_API_KEY = "10200";
+const OPSCAN_API_KEY = process.env.OPSCAN_API_KEY;
 
 module.exports = {
     networks: {
@@ -56,8 +57,8 @@ module.exports = {
         },
         goerli: {
             url: "https://eth-goerli.g.alchemy.com/v2/" + ALCHEMY_API_KEY_GOERLI,
-            chainId: 5,
             accounts: accounts,
+            chainId: 5,
         },
         polygonMumbai: {
             url: "https://polygon-mumbai.g.alchemy.com/v2/" + ALCHEMY_API_KEY_MUMBAI,
@@ -66,6 +67,12 @@ module.exports = {
         chiado: {
             url: "https://rpc.chiadochain.net",
             accounts: accounts,
+            chainId: 10200
+        },
+        optimistic: {
+            url: "https://optimism.drpc.org",
+            accounts: accounts,
+            chainId: 10,
         },
         hardhat: {
             allowUnlimitedContractSize: true
@@ -89,6 +96,14 @@ module.exports = {
                     browserURL: "https://gnosisscan.io/"
                 },
             },
+            {
+                network: "optimistic",
+                chainId: 10,
+                urls: {
+                    apiURL: "https://api-optimistic.etherscan.io/api",
+                    browserURL: "https://sepolia-optimistic.etherscan.io"
+                },
+            },
         ],
         apiKey: {
             mainnet: ETHERSCAN_API_KEY,
@@ -97,6 +112,7 @@ module.exports = {
             goerli: ETHERSCAN_API_KEY,
             polygonMumbai: POLYGONSCAN_API_KEY,
             chiado: CHIADOSCAN_API_KEY,
+            optimistic: OPSCAN_API_KEY,
         }
     },
     solidity: {
