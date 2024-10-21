@@ -31,14 +31,16 @@ Parameters of the `globals.json` file:
     liveness (activity). In other words, it's the minimum number of transactions the service multisig needs to perform in order
     to pass the liveness check. To check this `rewardsPerSecond* livenessPeriod/1e18` should approximate the number of txs required per livenessPeriod.
     Assuming the number of required tx-s per day is 10, the liveness ratio can be checked by means of [this formula](https://www.wolframalpha.com/input?i=%28115740740740740+*+60+*+60+*+24%29+%2F+10%5E18);
-- `mechActivityCheckerAddress`: a mech activity checker contract address that is currently deployed using `agentMechAddress`
-    and `livenessRatio` values;
+- `stakingActivityCheckerAddress`: a basic activity checker contract address that uses only the `livenessRatio` value;
+- `singleMechActivityCheckerAddress`: a mech activity checker contract address that uses `agentMechAddress` and `livenessRatio` values;
+- `mechActivityCheckerAddress`: a mech activity checker contract address that uses deliveries of `mechMarketplaceAddress` and `livenessRatio` values;
+- `requesterActivityCheckerAddress`: a mech activity checker contract address that uses requests of `mechMarketplaceAddress` and `livenessRatio` values;
 - `stakingTokenAddress`: a staking token implementation address all the instances are created with when deploying a proxy staking contract;
 - `stakingFactoryAddress`: a staking proxy factory that creates each proxy staking contract;
 - `stakingParams`: a set of staking contract parameters used to initiate each staking proxy contract. See [here](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/StakingSmartContracts.pdf) for more details.
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
-- `deploy_01_mech_activity_checker.js` will complete step 1.
+- `deploy_01_staking_token_instance.js` will complete step 1.
 
 Export network-related API keys defined in `hardhat.config.js` file that correspond to the required network.
 

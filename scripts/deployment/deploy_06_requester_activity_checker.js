@@ -12,7 +12,7 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const agentMechAddress = parsedData.agentMechAddress;
+    const mechMarketplaceAddress = parsedData.mechMarketplaceAddress;
     const livenessRatio = parsedData.livenessRatio;
 
     let networkURL = parsedData.networkURL;
@@ -43,29 +43,29 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("5. EOA to deploy SingleMechActivityChecker");
+    console.log("6. EOA to deploy RequesterActivityChecker");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const SingleMechActivityChecker = await ethers.getContractFactory("SingleMechActivityChecker");
-    console.log("You are signing the following transaction: SingleMechActivityChecker.connect(EOA).deploy()");
-    const singleMechActivityChecker = await SingleMechActivityChecker.connect(EOA).deploy(agentMechAddress,
-        livenessRatio, { gasPrice });
-    const result = await singleMechActivityChecker.deployed();
+    const RequesterActivityChecker = await ethers.getContractFactory("RequesterActivityChecker");
+    console.log("You are signing the following transaction: RequesterActivityChecker.connect(EOA).deploy()");
+    const requesterActivityChecker = await RequesterActivityChecker.connect(EOA).deploy(mechMarketplaceAddress, livenessRatio,
+        { gasPrice });
+    const result = await requesterActivityChecker.deployed();
 
     // Transaction details
-    console.log("Contract deployment: SingleMechActivityChecker");
-    console.log("Contract address:", singleMechActivityChecker.address);
+    console.log("Contract deployment: RequesterActivityChecker");
+    console.log("Contract address:", requesterActivityChecker.address);
     console.log("Transaction:", result.deployTransaction.hash);
     // Wait half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.singleMechActivityCheckerAddress = singleMechActivityChecker.address;
+    parsedData.requesterActivityCheckerAddress = requesterActivityChecker.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_05_single_mech_activity_checker.js --network " + providerName + " " + singleMechActivityChecker.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_06_requester_activity_checker.js --network " + providerName + " " + requesterActivityChecker.address, { encoding: "utf-8" });
     }
 }
 

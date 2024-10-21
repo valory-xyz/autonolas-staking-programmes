@@ -12,8 +12,9 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const mechMarketplaceAddress = parsedData.mechMarketplaceAddress;
-    const livenessRatio = parsedData.livenessRatio;
+    const stakingParams = parsedData.stakingParams;
+    const stakingNativeTokenAddress = parsedData.stakingNativeTokenAddress;
+    const stakingFactoryAddress = parsedData.stakingFactoryAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -42,30 +43,37 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
+    // Get StakingFactory contract instance
+    const stakingFactory = await ethers.getContractAt("StakingFactory", stakingFactoryAddress);
+    // Get StakingToken implementation contract instance
+    const stakingNativeToken = await ethers.getContractAt("StakingNativeToken", stakingNativeTokenAddress);
+
     // Transaction signing and execution
-    console.log("4. EOA to deploy RequesterActivityChecker");
+    console.log("2. EOA to deploy StakingNativeTokenInstance via the StakingFactory");
+    console.log("You are signing the following transaction: StakingFactory.connect(EOA).createStakingInstance()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const RequesterActivityChecker = await ethers.getContractFactory("RequesterActivityChecker");
-    console.log("You are signing the following transaction: RequesterActivityChecker.connect(EOA).deploy()");
-    const requesterActivityChecker = await RequesterActivityChecker.connect(EOA).deploy(mechMarketplaceAddress, livenessRatio,
-        { gasPrice });
-    const result = await requesterActivityChecker.deployed();
+    const initPayload = stakingNativeToken.interface.encodeFunctionData("initialize", [stakingParams]);
+    const result = await stakingFactory.createStakingInstance(stakingNativeTokenAddress, initPayload, { gasPrice });
+    let res = await result.wait();
+    // Get staking contract instance address from the event
+    const stakingNativeTokenInstanceAddress = "0x" + res.logs[0].topics[2].slice(26);
 
     // Transaction details
-    console.log("Contract deployment: RequesterActivityChecker");
-    console.log("Contract address:", requesterActivityChecker.address);
-    console.log("Transaction:", result.deployTransaction.hash);
+    console.log("Contract deployment: StakingProxy");
+    console.log("Contract address:", stakingNativeTokenInstanceAddress);
+    console.log("Transaction:", result.hash);
+
     // Wait half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.requesterActivityCheckerAddress = requesterActivityChecker.address;
+    parsedData.stakingNativeTokenInstanceAddress = stakingNativeTokenInstanceAddress;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_04_requester_activity_checker.js --network " + providerName + " " + requesterActivityChecker.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_02_staking_native_token_instance.js --network " + providerName + " " + stakingNativeTokenInstanceAddress, { encoding: "utf-8" });
     }
 }
 

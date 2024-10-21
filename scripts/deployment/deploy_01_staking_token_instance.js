@@ -51,7 +51,7 @@ async function main() {
     const stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
 
     // Transaction signing and execution
-    console.log("21. EOA to deploy StakingTokenInstance via the StakingFactory");
+    console.log("1. EOA to deploy StakingTokenInstance via the StakingFactory");
     console.log("You are signing the following transaction: StakingFactory.connect(EOA).createStakingInstance()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const initPayload = stakingToken.interface.encodeFunctionData("initialize", [stakingParams,
@@ -77,7 +77,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_02_staking_token_instance.js --network " + providerName + " " + stakingTokenInstanceAddress, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_01_staking_token_instance.js --network " + providerName + " " + stakingTokenInstanceAddress, { encoding: "utf-8" });
     }
 }
 
