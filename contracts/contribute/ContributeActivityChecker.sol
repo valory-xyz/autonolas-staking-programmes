@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// Contributors interface
 interface IContributors {
     function mapMutisigActivities(address multisig) external view returns (uint256);
 }

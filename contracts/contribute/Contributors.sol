@@ -24,6 +24,14 @@ error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 /// @param account Account address.
 error UnauthorizedAccount(address account);
 
+// Struct for service info
+struct ServiceInfo {
+    // Service Id
+    uint256 serviceId;
+    // Corresponding service multisig
+    address multisig;
+}
+
 /// @title Contributors - Smart contract for managing contributors
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
@@ -33,7 +41,7 @@ contract Contributors {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event ManagerUpdated(address indexed manager);
-    event SetMultisigForId(uint256 indexed id, address indexed multisig);
+    event SetServiceInfoForId(uint256 indexed socialId, uint256 indexed serviceId, address indexed multisig);
     event SetContributeAgentStatuses(address[] mechMarketplaces, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
 
@@ -47,8 +55,8 @@ contract Contributors {
     // Service manager contract address
     address public manager;
 
-    // Mapping of social id => service multisig address
-    mapping(uint256 => address) public mapSocialHashMultisigs;
+    // Mapping of social id => service info
+    mapping(uint256 => ServiceInfo) public mapSocialIdServiceInfo;
     // Mapping of service multisig address => activity
     mapping(address => uint256) public mapMutisigActivities;
     // Mapping of whitelisted contributor agents
@@ -126,19 +134,22 @@ contract Contributors {
         emit ManagerUpdated(newManager);
     }
     
-    /// @dev Sets service multisig for the social id.
-    /// @param id Social id.
+    /// @dev Sets service info for the social id.
+    /// @param socialId Social id.
+    /// @param serviceId Service Id.
     /// @param multisig Service multisig address.
-    function setMultisigForId(uint256 id, address multisig) external {
+    function setServiceInfoForId(uint256 socialId, uint256 serviceId, address multisig) external {
         // Check for manager
         if (msg.sender != manager) {
             revert OnlyManager(msg.sender, manager);
         }
 
         // Set (or remove) multisig for the corresponding social id
-        mapSocialHashMultisigs[id] = multisig;
+        ServiceInfo storage serviceInfo = mapSocialIdServiceInfo[socialId];
+        serviceInfo.serviceId = serviceId;
+        serviceInfo.multisig = multisig;
 
-        emit SetMultisigForId(id, multisig);
+        emit SetServiceInfoForId(socialId, serviceId, multisig);
     }
 
     /// @dev Sets contribute agent statues.
