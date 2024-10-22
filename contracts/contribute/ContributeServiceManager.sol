@@ -209,22 +209,6 @@ contract ContributeServiceManager {
         // Get the token info from the staking contract
         // If this call fails, it means the staking contract does not have a token and is not compatible
         address token = IStaking(stakingInstance).stakingToken();
-//        // This way allows not to revert when the staking contract does not have a token (native token based)
-//        bytes memory tokenData = abi.encodeCall(IStaking.stakingToken, ());
-//        (success, returnData) = instance.staticcall(tokenData);
-//
-//        // Check the returnData is the call was successful
-//        if (success) {
-//            // The returned size must be 32 to fit one address
-//            if (returnData.length == 32) {
-//                token = abi.decode(returnData, (address));
-//                if (token != olas) {
-//                    return false;
-//                }
-//            } else {
-//                revert();
-//            }
-//        }
 
         // Get other service info for staking
         uint256 minStakingDeposit = IStaking(stakingInstance).minStakingDeposit();
