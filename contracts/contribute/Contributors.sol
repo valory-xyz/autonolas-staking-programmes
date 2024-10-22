@@ -45,7 +45,8 @@ contract Contributors {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event ManagerUpdated(address indexed manager);
-    event SetServiceInfoForId(uint256 indexed socialId, uint256 indexed serviceId, address indexed multisig);
+    event SetServiceInfoForId(uint256 indexed socialId, uint256 indexed serviceId, address multisig,
+        address stakingInstance, address indexed serviceOwner);
     event SetContributeAgentStatuses(address[] mechMarketplaces, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
 
@@ -163,7 +164,7 @@ contract Contributors {
         serviceInfo.stakingInstance = stakingInstance;
         serviceInfo.serviceOwner = serviceOwner;
 
-        emit SetServiceInfoForId(socialId, serviceId, multisig);
+        emit SetServiceInfoForId(socialId, serviceId, multisig, stakingInstance, serviceOwner);
     }
 
     /// @dev Sets contribute agent statues.
