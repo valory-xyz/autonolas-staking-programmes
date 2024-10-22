@@ -7,9 +7,6 @@ error ZeroAddress();
 /// @dev Zero value.
 error ZeroValue();
 
-/// @dev Only contribute is allowed to have access.
-error OnlyContribute(address sender, address contribute);
-
 /// @title ContributeServiceManager - Smart contract for managing services for contributors
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
