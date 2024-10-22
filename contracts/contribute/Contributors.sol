@@ -30,6 +30,10 @@ struct ServiceInfo {
     uint256 serviceId;
     // Corresponding service multisig
     address multisig;
+    // Staking instance address
+    address stakingInstance;
+    // Service owner address
+    address serviceOwner;
 }
 
 /// @title Contributors - Smart contract for managing contributors
@@ -133,12 +137,20 @@ contract Contributors {
         manager = newManager;
         emit ManagerUpdated(newManager);
     }
-    
+
     /// @dev Sets service info for the social id.
     /// @param socialId Social id.
     /// @param serviceId Service Id.
     /// @param multisig Service multisig address.
-    function setServiceInfoForId(uint256 socialId, uint256 serviceId, address multisig) external {
+    /// @param stakingInstance Staking instance address.
+    /// @param serviceOwner Service owner.
+    function setServiceInfoForId(
+        uint256 socialId,
+        uint256 serviceId,
+        address multisig,
+        address stakingInstance,
+        address serviceOwner
+    ) external {
         // Check for manager
         if (msg.sender != manager) {
             revert OnlyManager(msg.sender, manager);
@@ -148,6 +160,8 @@ contract Contributors {
         ServiceInfo storage serviceInfo = mapSocialIdServiceInfo[socialId];
         serviceInfo.serviceId = serviceId;
         serviceInfo.multisig = multisig;
+        serviceInfo.stakingInstance = stakingInstance;
+        serviceInfo.serviceOwner = serviceOwner;
 
         emit SetServiceInfoForId(socialId, serviceId, multisig);
     }

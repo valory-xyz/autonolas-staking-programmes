@@ -53,7 +53,30 @@ interface IService {
         bytes memory data
     ) external returns (address multisig);
 
+    /// @dev Gets the serviceRegistry address.
+    /// @return serviceRegistry address.
+    function serviceRegistry() external returns (address);
+
     /// @dev Gets the serviceRegistryTokenUtility address.
     /// @return serviceRegistryTokenUtility address.
     function serviceRegistryTokenUtility() external returns (address);
+
+    /// @dev Gets the service instance from the map of services.
+    /// @param serviceId Service Id.
+    /// @return securityDeposit Registration activation deposit.
+    /// @return multisig Service multisig address.
+    /// @return configHash IPFS hashes pointing to the config metadata.
+    /// @return threshold Agent instance signers threshold.
+    /// @return maxNumAgentInstances Total number of agent instances.
+    /// @return numAgentInstances Actual number of agent instances.
+    /// @return state Service state.
+    function mapServices(uint256 serviceId) external view returns (
+        uint96 securityDeposit,
+        address multisig,
+        bytes32 configHash,
+        uint32 threshold,
+        uint32 maxNumAgentInstances,
+        uint32 numAgentInstances,
+        uint8 state
+    );
 }
