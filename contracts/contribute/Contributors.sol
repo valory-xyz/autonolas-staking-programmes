@@ -29,7 +29,7 @@ error UnauthorizedAccount(address account);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Tatiana Priemova - <tatiana.priemova@valory.xyz>
 /// @author David Vilela - <david.vilelafreire@valory.xyz>
-contract ContributeActivityChecker {
+contract Contributors {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event ManagerUpdated(address indexed manager);
