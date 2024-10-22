@@ -86,7 +86,7 @@ contract ContributeServiceManager {
     /// @param _safeMultisig Safe multisig address.
     /// @param _fallbackHandler Multisig fallback handler address.
     constructor(address _contributorsProxy, address _serviceManager, address _safeMultisig, address _fallbackHandler) {
-        // Check the zero address
+        // Check for zero addresses
         if (_contributorsProxy == address(0) || _serviceManager == address(0) || _safeMultisig == address(0) ||
             _fallbackHandler == address(0)) {
             revert ZeroAddress();
