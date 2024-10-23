@@ -29,9 +29,12 @@ more CEI,
         IContributors(contributorsProxy).setServiceInfoForId(msg.sender, 0, 0, address(0), address(0));
     
 ```
+[x] Fixed
+
 2. cyclic initialize(address _manager)
 ```
 Remove params in proxy init() / or setup manage as msg.sender.
 ```
+[x] Fixed
 
 

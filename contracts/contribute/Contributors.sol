@@ -176,6 +176,7 @@ contract Contributors {
 
         // Traverse all contribute agents and statuses
         for (uint256 i = 0; i < contributeAgents.length; ++i) {
+            // Check for zero addresses
             if (contributeAgents[i] == address(0)) {
                 revert ZeroAddress();
             }

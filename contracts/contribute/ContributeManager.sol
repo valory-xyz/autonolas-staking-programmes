@@ -5,7 +5,7 @@ import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/sr
 import {IContributors} from "./interfaces/IContributors.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
-import {IToken} from "./interfaces/IToken.sol";
+import {IToken, INFToken} from "./interfaces/IToken.sol";
 
 // Multisig interface
 interface IMultisig {
@@ -19,6 +19,9 @@ error ZeroAddress();
 
 /// @dev Zero value.
 error ZeroValue();
+
+/// @dev Caught reentrancy violation.
+error ReentrancyGuard();
 
 /// @dev Service is already created and staked for the contributor.
 /// @param socialId Social Id.
@@ -87,7 +90,9 @@ contract ContributeManager is ERC721TokenReceiver {
     address public immutable fallbackHandler;
 
     // Nonce
-    uint256 internal nonce;
+    uint256 internal _nonce;
+    // Reentrancy lock
+    uint256 internal _locked = 1;
 
     /// @dev ContributeManager constructor.
     /// @param _contributorsProxy Contributors proxy address.
@@ -164,7 +169,7 @@ contract ContributeManager is ERC721TokenReceiver {
         IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId, instances, agentIds);
 
         // Prepare Safe multisig data
-        uint256 localNonce = nonce;
+        uint256 localNonce = _nonce;
         uint256 randomNonce = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, localNonce)));
         bytes memory data = abi.encodePacked(address(0), fallbackHandler, address(0), address(0), uint256(0),
             randomNonce, "0x");
@@ -172,7 +177,7 @@ contract ContributeManager is ERC721TokenReceiver {
         multisig = IService(serviceManager).deploy(serviceId, safeMultisig, data);
 
         // Update the nonce
-        nonce = localNonce + 1;
+        _nonce = localNonce + 1;
     }
 
     /// @dev Stakes the already deployed service.
@@ -185,7 +190,7 @@ contract ContributeManager is ERC721TokenReceiver {
         IContributors(contributorsProxy).setServiceInfoForId(msg.sender, socialId, serviceId, multisig, stakingInstance);
 
         // Approve service NFT for the staking instance
-        IToken(serviceRegistry).approve(stakingInstance, serviceId);
+        INFToken(serviceRegistry).approve(stakingInstance, serviceId);
 
         // Stake the service
         IStaking(stakingInstance).stake(serviceId);
@@ -196,6 +201,12 @@ contract ContributeManager is ERC721TokenReceiver {
     /// @param socialId Contributor social Id.
     /// @param stakingInstance Contribute staking instance address.
     function createAndStake(uint256 socialId, address stakingInstance) external payable {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for zero value
         if (socialId == 0) {
             revert ZeroValue();
@@ -246,6 +257,8 @@ contract ContributeManager is ERC721TokenReceiver {
         _stake(socialId, serviceId, multisig, stakingInstance);
 
         emit CreatedAndStaked(socialId, msg.sender, serviceId, multisig, stakingInstance);
+
+        _locked = 1;
     }
 
     /// @dev Stakes the already deployed service.
@@ -253,6 +266,12 @@ contract ContributeManager is ERC721TokenReceiver {
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance.
     function stake(uint256 socialId, uint256 serviceId, address stakingInstance) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for existing service corresponding to the msg.sender
         (, uint256 serviceIdCheck, address multisig, ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceIdCheck > 0) {
@@ -276,10 +295,18 @@ contract ContributeManager is ERC721TokenReceiver {
         _stake(socialId, serviceId, multisig, stakingInstance);
 
         emit Staked(socialId, msg.sender, serviceId, multisig, stakingInstance);
+
+        _locked = 1;
     }
 
     /// @dev Unstakes service Id corresponding to the msg.sender and clears the contributor record.
     function unstake() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for existing service corresponding to the social Id
         (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
             IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
@@ -298,11 +325,19 @@ contract ContributeManager is ERC721TokenReceiver {
         IContributors(contributorsProxy).setServiceInfoForId(msg.sender, 0, 0, address(0), address(0));
 
         emit Unstaked(socialId, msg.sender, serviceId, multisig, stakingInstance);
+
+        _locked = 1;
     }
 
     /// @dev Claims rewards for the service corresponding to msg.sender.
     /// @return reward Staking reward.
     function claim() external returns (uint256 reward) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for existing service corresponding to the social Id
         (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
             IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
@@ -314,5 +349,7 @@ contract ContributeManager is ERC721TokenReceiver {
         reward = IStaking(stakingInstance).claim(serviceId);
 
         emit Claimed(socialId, msg.sender, serviceId, multisig, stakingInstance);
+
+        _locked = 1;
     }
 }
