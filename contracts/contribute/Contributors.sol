@@ -60,8 +60,8 @@ contract Contributors {
     // Service manager contract address
     address public manager;
 
-    // Mapping of address => service info
-    mapping(address => ServiceInfo) public mapSocialIdServiceInfo;
+    // Mapping of account address => service info
+    mapping(address => ServiceInfo) public mapAccountServiceInfo;
     // Mapping of service multisig address => activity
     mapping(address => uint256) public mapMutisigActivities;
     // Mapping of whitelisted contributor agents
@@ -151,7 +151,7 @@ contract Contributors {
         }
 
         // Set (or remove) multisig for the corresponding social id
-        ServiceInfo storage serviceInfo = mapSocialIdServiceInfo[serviceOwner];
+        ServiceInfo storage serviceInfo = mapAccountServiceInfo[serviceOwner];
         serviceInfo.socialId = socialId;
         serviceInfo.serviceId = serviceId;
         serviceInfo.multisig = multisig;

@@ -213,7 +213,7 @@ contract ContributeManager is ERC721TokenReceiver {
         }
 
         // Check for existing service corresponding to the msg.sender
-        (, uint256 serviceId, address multisig, ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
+        (, uint256 serviceId, address multisig, ) = IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
         if (serviceId > 0) {
             revert ServiceAlreadyStaked(socialId, serviceId, multisig);
         }
@@ -273,7 +273,7 @@ contract ContributeManager is ERC721TokenReceiver {
         _locked = 2;
 
         // Check for existing service corresponding to the msg.sender
-        (, uint256 serviceIdCheck, address multisig, ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
+        (, uint256 serviceIdCheck, address multisig, ) = IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
         if (serviceIdCheck > 0) {
             revert ServiceAlreadyStaked(socialId, serviceIdCheck, multisig);
         }
@@ -289,7 +289,7 @@ contract ContributeManager is ERC721TokenReceiver {
         }
 
         // Transfer the service NFT
-        IToken(serviceRegistry).transferFrom(msg.sender, address(this), serviceId);
+        INFToken(serviceRegistry).safeTransferFrom(msg.sender, address(this), serviceId);
 
         // Stake the service
         _stake(socialId, serviceId, multisig, stakingInstance);
@@ -309,7 +309,7 @@ contract ContributeManager is ERC721TokenReceiver {
 
         // Check for existing service corresponding to the social Id
         (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
-            IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
+            IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
         if (serviceId == 0) {
             revert ServiceNotDefined(socialId);
         }
@@ -318,7 +318,7 @@ contract ContributeManager is ERC721TokenReceiver {
         IStaking(stakingInstance).unstake(serviceId);
 
         // Transfer the service back to the original owner
-        IToken(serviceRegistry).transfer(msg.sender, serviceId);
+        INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId);
 
         // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
         // If the same service is staked back, the multisig activity continues being tracked
@@ -340,7 +340,7 @@ contract ContributeManager is ERC721TokenReceiver {
 
         // Check for existing service corresponding to the social Id
         (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
-            IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
+            IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
         if (serviceId == 0) {
             revert ServiceNotDefined(socialId);
         }

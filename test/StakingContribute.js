@@ -155,7 +155,10 @@ describe("Staking", function () {
         await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
         // Set the manager of contributorsProxy
-        contributors.changeManager(contributeManager.address);
+        await contributors.changeManager(contributeManager.address);
+
+        // Set deployer address to be the agent
+        await contributors.setContributeAgentStatuses([deployer.address], [true]);
 
         // Fund the staking contract
         await token.approve(stakingTokenAddress, ethers.utils.parseEther("1"));
@@ -166,10 +169,67 @@ describe("Staking", function () {
     });
 
     context("Contribute manager", function () {
-        it.only("Mint and stake", async function () {
+        it("Mint and stake", async function () {
+            // Approve OLAS for contributeManager
             await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
 
+            // Mint and stake the service
             await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+        });
+
+        it("Mint, stake, unstake and stake again", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Approve OLAS for contributeManager
+            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+
+            // Mint and stake the service
+            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+
+            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
+            await helpers.time.increase(maxInactivity);
+
+            // Unstake the service
+            await contributeManager.unstake();
+
+            // Approve the service for the contributeManager
+            await serviceRegistry.approve(contributeManager.address, serviceId);
+
+            // Stake the service again
+            await contributeManager.stake(socialId, serviceId, stakingToken.address);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Mint, stake, perform activity, claim", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Approve OLAS for contributeManager
+            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+
+            // Mint and stake the service
+            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+
+            // Get the user data
+            const serviceInfo = await contributors.mapAccountServiceInfo(deployer.address);
+
+            // Perform the service activity
+            await contributors.increaseActivity([serviceInfo.multisig], [10]);
+
+            // Increase the time until the next staking epoch
+            await helpers.time.increase(livenessPeriod);
+
+            // Call the checkpoint
+            await stakingToken.checkpoint();
+
+            // Claim rewards
+            await contributeManager.claim();
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
         });
     });
 });
