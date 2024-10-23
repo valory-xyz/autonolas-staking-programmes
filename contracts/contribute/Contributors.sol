@@ -68,20 +68,13 @@ contract Contributors {
     mapping(address => bool) public mapContributeAgents;
 
     /// @dev Contributors initializer.
-    /// @param _manager Manager address.
-    function initialize(address _manager) external{
+    function initialize() external{
         // Check for already initialized
         if (owner != address(0)) {
             revert AlreadyInitialized();
         }
 
-        // Check for zero address
-        if (_manager == address(0)) {
-            revert ZeroAddress();
-        }
-
         owner = msg.sender;
-        manager = _manager;
     }
 
     /// @dev Changes the contributors implementation contract address.
