@@ -1,0 +1,27 @@
+'solc --version' running
+'solc ./ContributeManager-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./ContributorsProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./Contributors-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./ContributeActivityChecker-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+INFO:Printers:Call Graph: ./ContributeManager-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./ContributeManager-flatten.sol.IContributors.call-graph.dot
+Call Graph: ./ContributeManager-flatten.sol.IService.call-graph.dot
+Call Graph: ./ContributeManager-flatten.sol.IStaking.call-graph.dot
+Call Graph: ./ContributeManager-flatten.sol.IToken.call-graph.dot
+Call Graph: ./ContributeManager-flatten.sol.IMultisig.call-graph.dot
+Call Graph: ./ContributeManager-flatten.sol.ContributeManager.call-graph.dot
+
+INFO:Printers:Call Graph: ./ContributorsProxy-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./ContributorsProxy-flatten.sol.ContributorsProxy.call-graph.dot
+
+INFO:Printers:Call Graph: ./Contributors-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./Contributors-flatten.sol.Contributors.call-graph.dot
+
+INFO:Printers:Call Graph: ./ContributeActivityChecker-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./ContributeActivityChecker-flatten.sol.IContributors.call-graph.dot
+Call Graph: ./ContributeActivityChecker-flatten.sol.ContributeActivityChecker.call-graph.dot
+
+INFO:Slither:. analyzed (10 contracts)
