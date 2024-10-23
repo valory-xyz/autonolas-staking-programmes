@@ -46,7 +46,7 @@ contract ContributeActivityChecker {
     /// @return nonces Set of a single service multisig nonce.
     function getMultisigNonces(address multisig) external view virtual returns (uint256[] memory nonces) {
         nonces = new uint256[](1);
-        // The nonces are equal to the social off-chain activity corresponding multisig activity
+        // The nonce is equal to the social off-chain activity corresponding to a multisig activity
         nonces[0] = IContributors(contributorsProxy).mapMutisigActivities(multisig);
     }
 

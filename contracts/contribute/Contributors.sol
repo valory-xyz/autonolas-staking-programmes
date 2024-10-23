@@ -47,7 +47,7 @@ contract Contributors {
     event ManagerUpdated(address indexed manager);
     event SetServiceInfoForId(uint256 indexed socialId, uint256 indexed serviceId, address multisig,
         address stakingInstance, address indexed serviceOwner);
-    event SetContributeAgentStatuses(address[] mechMarketplaces, bool[] statuses);
+    event SetContributeAgentStatuses(address[] contributeAgents, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
 
     // Version number
@@ -170,7 +170,7 @@ contract Contributors {
     /// @dev Sets contribute agent statues.
     /// @param contributeAgents Contribute agent addresses.
     /// @param statuses Corresponding whitelisting statues.
-    function setMechMarketplaceStatuses(address[] memory contributeAgents, bool[] memory statuses) external {
+    function setContributeAgentStatuses(address[] memory contributeAgents, bool[] memory statuses) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -181,7 +181,7 @@ contract Contributors {
             revert WrongArrayLength(contributeAgents.length, statuses.length);
         }
 
-        // Traverse all the mech marketplaces and statuses
+        // Traverse all contribute agents and statuses
         for (uint256 i = 0; i < contributeAgents.length; ++i) {
             if (contributeAgents[i] == address(0)) {
                 revert ZeroAddress();
@@ -214,4 +214,6 @@ contract Contributors {
 
         emit MultisigActivityChanged(msg.sender, multisigs, activityChanges);
     }
+
+
 }

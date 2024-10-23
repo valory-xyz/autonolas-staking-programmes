@@ -45,12 +45,12 @@ error ServiceNotDefined(uint256 socialId);
 /// @param serviceOwner Actual service owner.
 error ServiceOwnerOnly(uint256 serviceId, address sender, address serviceOwner);
 
-/// @title ContributeServiceManager - Smart contract for managing services for contributors
+/// @title ContributeManager - Smart contract for managing services for contributors
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Tatiana Priemova - <tatiana.priemova@valory.xyz>
 /// @author David Vilela - <david.vilelafreire@valory.xyz>
-contract ContributeServiceManager {
+contract ContributeManager {
     event CreatedAndStaked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
         address indexed multisig, address stakingInstance);
     event Staked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
@@ -60,18 +60,26 @@ contract ContributeServiceManager {
     event Claimed(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
         address indexed multisig, address stakingInstance);
 
-    // Contribute agent Id
-    uint256 public constant AGENT_ID = 6;
-    // Contributor service config hash mock
-    bytes32 public constant CONFIG_HASH = 0x0000000000000000000000000000000000000000000000000000000000000006;
-    // Contributors proxy contract address
+    // Number of agent instances
+    uint256 public constant NUM_AGENT_INSTANCES = 1;
+    // Threshold
+    uint256 public constant THRESHOLD = 1;
+    // Contributor agent Id
+    uint256 public immutable agentId;
+    // Contributor service config hash
+    bytes32 public immutable configHash;
+    // Contributors proxy address
     address public immutable contributorsProxy;
-    // Service manager contract address
+    // Service manager address
     address public immutable serviceManager;
+    // OLAS token address
+    address public immutable olas;
     // Service registry address
     address public immutable serviceRegistry;
     // Service registry token utility address
     address public immutable serviceRegistryTokenUtility;
+    // Staking factory address
+    address public immutable stakingFactory;
     // Safe multisig processing contract address
     address public immutable safeMultisig;
     // Safe fallback handler
@@ -80,20 +88,43 @@ contract ContributeServiceManager {
     // Nonce
     uint256 internal nonce;
 
-    /// @dev ContributeServiceManager constructor.
+    /// @dev ContributeManager constructor.
     /// @param _contributorsProxy Contributors proxy address.
     /// @param _serviceManager Service manager address.
+    /// @param _olas OLAS token address.
+    /// @param _stakingFactory Staking factory address.
     /// @param _safeMultisig Safe multisig address.
     /// @param _fallbackHandler Multisig fallback handler address.
-    constructor(address _contributorsProxy, address _serviceManager, address _safeMultisig, address _fallbackHandler) {
+    /// @param _agentId Contributor agent Id.
+    /// @param _configHash Contributor service config hash.
+    constructor(
+        address _contributorsProxy,
+        address _serviceManager,
+        address _olas,
+        address _stakingFactory,
+        address _safeMultisig,
+        address _fallbackHandler,
+        uint256 _agentId,
+        bytes32 _configHash
+    ) {
         // Check for zero addresses
-        if (_contributorsProxy == address(0) || _serviceManager == address(0) || _safeMultisig == address(0) ||
-            _fallbackHandler == address(0)) {
+        if (_contributorsProxy == address(0) || _serviceManager == address(0) || _olas == address(0) ||
+            _stakingFactory == address(0) || _safeMultisig == address(0) || _fallbackHandler == address(0)) {
             revert ZeroAddress();
         }
 
+        // Check for zero values
+        if (_agentId == 0 || _configHash == 0) {
+            revert ZeroValue();
+        }
+
+        agentId = _agentId;
+        configHash = _configHash;
+
         contributorsProxy = _contributorsProxy;
         serviceManager = _serviceManager;
+        olas = _olas;
+        stakingFactory = _stakingFactory;
         safeMultisig = _safeMultisig;
         fallbackHandler = _fallbackHandler;
         serviceRegistry = IService(serviceManager).serviceRegistry();
@@ -103,42 +134,39 @@ contract ContributeServiceManager {
     /// @dev Creates and deploys a service for the contributor.
     /// @param token Staking token address.
     /// @param minStakingDeposit Min staking deposit value.
-    /// @param numAgentInstances Number of agent instances in the service.
-    /// @param threshold Threshold.
     /// @return serviceId Minted service Id.
     /// @return multisig Service multisig.
     function _createAndDeploy(
         address token,
-        uint256 minStakingDeposit,
-        uint256 numAgentInstances,
-        uint256 threshold
+        uint256 minStakingDeposit
     ) internal returns (uint256 serviceId, address multisig) {
         // Set agent params
-        IService.AgentParams[] memory agentParams = new IService.AgentParams[](1);
-        agentParams[0] = IService.AgentParams(uint32(numAgentInstances), uint96(minStakingDeposit));
+        IService.AgentParams[] memory agentParams = new IService.AgentParams[](NUM_AGENT_INSTANCES);
+        agentParams[0] = IService.AgentParams(uint32(NUM_AGENT_INSTANCES), uint96(minStakingDeposit));
 
         // Set agent Ids
-        uint32[] memory agentIds = new uint32[](1);
-        agentIds[0] = uint32(AGENT_ID);
+        uint32[] memory agentIds = new uint32[](NUM_AGENT_INSTANCES);
+        agentIds[0] = uint32(agentId);
 
         // Set agent instances as [msg.sender]
-        address[] memory instances = new address[](1);
+        address[] memory instances = new address[](NUM_AGENT_INSTANCES);
         instances[0] = msg.sender;
 
         // Create a service owned by this contract
-        serviceId = IService(serviceManager).create(address(this), token, CONFIG_HASH, agentIds,
-            agentParams, uint32(threshold));
+        serviceId = IService(serviceManager).create(address(this), token, configHash, agentIds,
+            agentParams, uint32(THRESHOLD));
 
         // Activate registration (1 wei as a deposit wrapper)
         IService(serviceManager).activateRegistration{value: 1}(serviceId);
 
         // Register msg.sender as an agent instance (numAgentInstances wei as a bond wrapper)
-        IService(serviceManager).registerAgents{value: numAgentInstances}(serviceId, instances, agentIds);
+        IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId, instances, agentIds);
 
         // Prepare Safe multisig data
         uint256 localNonce = nonce;
+        uint256 randomNonce = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, localNonce)));
         bytes memory data = abi.encodePacked(address(0), fallbackHandler, address(0), address(0), uint256(0),
-            localNonce, "0x");
+            randomNonce, "0x");
         // Deploy the service
         multisig = IService(serviceManager).deploy(serviceId, safeMultisig, data);
 
@@ -167,15 +195,29 @@ contract ContributeServiceManager {
     /// @param socialId Contributor social Id.
     /// @param stakingInstance Contribute staking instance address.
     function createAndStake(uint256 socialId, address stakingInstance) external payable {
+        // Check for zero value
+        if (socialId == 0) {
+            revert ZeroValue();
+        }
+
         // Check for existing service corresponding to the social Id
         (uint256 serviceId, address multisig, , ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(socialId);
         if (serviceId > 0) {
             revert ServiceAlreadyStaked(socialId, serviceId, multisig);
         }
 
+        // Check for staking instance validity
+        if(!IStaking(stakingFactory).verifyInstance(stakingInstance)) {
+            revert WrongStakingInstance(stakingInstance);
+        }
+
         // Get the token info from the staking contract
         // If this call fails, it means the staking contract does not have a token and is not compatible
         address token = IStaking(stakingInstance).stakingToken();
+        // Check the token address
+        if (token != olas) {
+            revert WrongStakingInstance(stakingInstance);
+        }
 
         // Get other service info for staking
         uint256 minStakingDeposit = IStaking(stakingInstance).minStakingDeposit();
@@ -183,20 +225,20 @@ contract ContributeServiceManager {
         uint256 threshold = IStaking(stakingInstance).threshold();
         // Check for number of agent instances that must be equal to one,
         // since msg.sender is the only service multisig owner
-        if (numAgentInstances != 1 || threshold != 1) {
+        if (numAgentInstances != NUM_AGENT_INSTANCES || threshold != THRESHOLD) {
             revert WrongStakingInstance(stakingInstance);
         }
 
         // Calculate the total bond required for the service deployment:
-        uint256 totalBond = (1 + numAgentInstances) * minStakingDeposit;
+        uint256 totalBond = (1 + NUM_AGENT_INSTANCES) * minStakingDeposit;
 
         // Transfer the total bond amount from the contributor
-        IToken(token).transferFrom(msg.sender, address(this), totalBond);
+        IToken(olas).transferFrom(msg.sender, address(this), totalBond);
         // Approve token for the serviceRegistryTokenUtility contract
-        IToken(token).approve(serviceRegistryTokenUtility, totalBond);
+        IToken(olas).approve(serviceRegistryTokenUtility, totalBond);
 
         // Create and deploy service
-        (serviceId, multisig) = _createAndDeploy(token, minStakingDeposit, numAgentInstances, threshold);
+        (serviceId, multisig) = _createAndDeploy(olas, minStakingDeposit);
 
         // Stake the service
         _stake(socialId, serviceId, multisig, stakingInstance);

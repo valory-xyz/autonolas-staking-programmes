@@ -32,4 +32,9 @@ interface IStaking {
     /// @param serviceId Service Id.
     /// @return Staking reward.
     function claim(uint256 serviceId) external returns (uint256);
+
+    /// @dev Verifies a service staking contract instance.
+    /// @param instance Service staking proxy instance.
+    /// @return True, if verification is successful.
+    function verifyInstance(address instance) external view returns (bool);
 }
