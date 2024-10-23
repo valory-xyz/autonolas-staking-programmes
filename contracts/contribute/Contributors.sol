@@ -214,6 +214,4 @@ contract Contributors {
 
         emit MultisigActivityChanged(msg.sender, multisigs, activityChanges);
     }
-
-
 }
