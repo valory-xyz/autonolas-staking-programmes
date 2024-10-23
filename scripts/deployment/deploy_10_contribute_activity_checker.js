@@ -47,8 +47,8 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const ContributeActivityChecker = await ethers.getContractFactory("ContributeActivityChecker");
     console.log("You are signing the following transaction: ContributeActivityChecker.connect(EOA).deploy()");
-    const contributeActivityChecker = await ContributeActivityChecker.connect(EOA).deploy(contributorsProxyAddress, livenessRatio,
-        { gasPrice });
+    const contributeActivityChecker = await ContributeActivityChecker.connect(EOA).deploy(contributorsProxyAddress,
+        livenessRatio, { gasPrice });
     const result = await contributeActivityChecker.deployed();
 
     // Transaction details

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
 import {IContributors} from "./interfaces/IContributors.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
@@ -50,7 +51,7 @@ error ServiceOwnerOnly(uint256 serviceId, address sender, address serviceOwner);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Tatiana Priemova - <tatiana.priemova@valory.xyz>
 /// @author David Vilela - <david.vilelafreire@valory.xyz>
-contract ContributeManager {
+contract ContributeManager is ERC721TokenReceiver {
     event CreatedAndStaked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
         address indexed multisig, address stakingInstance);
     event Staked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
@@ -225,7 +226,8 @@ contract ContributeManager {
         uint256 threshold = IStaking(stakingInstance).threshold();
         // Check for number of agent instances that must be equal to one,
         // since msg.sender is the only service multisig owner
-        if (numAgentInstances != NUM_AGENT_INSTANCES || threshold != THRESHOLD) {
+        if ((numAgentInstances > 0 &&  numAgentInstances != NUM_AGENT_INSTANCES) ||
+            (threshold > 0 && threshold != THRESHOLD)) {
             revert WrongStakingInstance(stakingInstance);
         }
 
