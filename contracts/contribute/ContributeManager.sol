@@ -181,7 +181,7 @@ contract ContributeManager {
     /// @param stakingInstance Staking instance.
     function _stake(uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) internal {
         // Add the service into its social Id corresponding record
-        IContributors(contributorsProxy).setServiceInfoForId(socialId, serviceId, multisig, stakingInstance, msg.sender);
+        IContributors(contributorsProxy).setServiceInfoForId(msg.sender, socialId, serviceId, multisig, stakingInstance);
 
         // Approve service NFT for the staking instance
         IToken(serviceRegistry).approve(stakingInstance, serviceId);
@@ -200,8 +200,8 @@ contract ContributeManager {
             revert ZeroValue();
         }
 
-        // Check for existing service corresponding to the social Id
-        (uint256 serviceId, address multisig, , ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(socialId);
+        // Check for existing service corresponding to the msg.sender
+        (, uint256 serviceId, address multisig, ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceId > 0) {
             revert ServiceAlreadyStaked(socialId, serviceId, multisig);
         }
@@ -251,8 +251,8 @@ contract ContributeManager {
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance.
     function stake(uint256 socialId, uint256 serviceId, address stakingInstance) external {
-        // Check for existing service corresponding to the social Id
-        (uint256 serviceIdCheck, address multisig, , ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(socialId);
+        // Check for existing service corresponding to the msg.sender
+        (, uint256 serviceIdCheck, address multisig, ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceIdCheck > 0) {
             revert ServiceAlreadyStaked(socialId, serviceIdCheck, multisig);
         }
@@ -276,19 +276,13 @@ contract ContributeManager {
         emit Staked(socialId, msg.sender, serviceId, multisig, stakingInstance);
     }
 
-    /// @dev Unstakes service Id corresponding to the social Id and clears the contributor record.
-    /// @param socialId Social Id.
-    function unstake(uint256 socialId) external {
+    /// @dev Unstakes service Id corresponding to the msg.sender and clears the contributor record.
+    function unstake() external {
         // Check for existing service corresponding to the social Id
-        (uint256 serviceId, address multisig, address stakingInstance, address serviceOwner) =
-            IContributors(contributorsProxy).mapSocialIdServiceInfo(socialId);
+        (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
+            IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceId == 0) {
             revert ServiceNotDefined(socialId);
-        }
-
-        // Check for service owner
-        if (msg.sender != serviceOwner) {
-            revert ServiceOwnerOnly(serviceId, msg.sender, serviceOwner);
         }
 
         // Unstake the service
@@ -299,25 +293,19 @@ contract ContributeManager {
 
         // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
         // If the same service is staked back, the multisig activity continues being tracked
-        IContributors(contributorsProxy).setServiceInfoForId(socialId, 0, address(0), address(0), address(0));
+        IContributors(contributorsProxy).setServiceInfoForId(msg.sender, 0, 0, address(0), address(0));
 
         emit Unstaked(socialId, msg.sender, serviceId, multisig, stakingInstance);
     }
 
-    /// @dev Claims rewards for the service.
-    /// @param socialId Social Id.
+    /// @dev Claims rewards for the service corresponding to msg.sender.
     /// @return reward Staking reward.
-    function claim(uint256 socialId) external returns (uint256 reward) {
+    function claim() external returns (uint256 reward) {
         // Check for existing service corresponding to the social Id
-        (uint256 serviceId, address multisig, address stakingInstance, address serviceOwner) =
-            IContributors(contributorsProxy).mapSocialIdServiceInfo(socialId);
+        (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
+            IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceId == 0) {
             revert ServiceNotDefined(socialId);
-        }
-
-        // Check for service owner
-        if (msg.sender != serviceOwner) {
-            revert ServiceOwnerOnly(serviceId, msg.sender, serviceOwner);
         }
 
         // Claim staking rewards

@@ -26,14 +26,14 @@ error UnauthorizedAccount(address account);
 
 // Struct for service info
 struct ServiceInfo {
+    // Social Id
+    uint256 socialId;
     // Service Id
     uint256 serviceId;
     // Corresponding service multisig
     address multisig;
     // Staking instance address
     address stakingInstance;
-    // Service owner address
-    address serviceOwner;
 }
 
 /// @title Contributors - Smart contract for managing contributors
@@ -45,8 +45,8 @@ contract Contributors {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event ManagerUpdated(address indexed manager);
-    event SetServiceInfoForId(uint256 indexed socialId, uint256 indexed serviceId, address multisig,
-        address stakingInstance, address indexed serviceOwner);
+    event SetServiceInfoForId(address indexed serviceOwner, uint256 indexed socialId, uint256 indexed serviceId,
+        address multisig, address stakingInstance);
     event SetContributeAgentStatuses(address[] contributeAgents, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
 
@@ -60,8 +60,8 @@ contract Contributors {
     // Service manager contract address
     address public manager;
 
-    // Mapping of social id => service info
-    mapping(uint256 => ServiceInfo) public mapSocialIdServiceInfo;
+    // Mapping of address => service info
+    mapping(address => ServiceInfo) public mapSocialIdServiceInfo;
     // Mapping of service multisig address => activity
     mapping(address => uint256) public mapMutisigActivities;
     // Mapping of whitelisted contributor agents
@@ -140,17 +140,17 @@ contract Contributors {
     }
 
     /// @dev Sets service info for the social id.
+    /// @param serviceOwner Service owner.
     /// @param socialId Social id.
     /// @param serviceId Service Id.
     /// @param multisig Service multisig address.
     /// @param stakingInstance Staking instance address.
-    /// @param serviceOwner Service owner.
     function setServiceInfoForId(
+        address serviceOwner,
         uint256 socialId,
         uint256 serviceId,
         address multisig,
-        address stakingInstance,
-        address serviceOwner
+        address stakingInstance
     ) external {
         // Check for manager
         if (msg.sender != manager) {
@@ -158,13 +158,13 @@ contract Contributors {
         }
 
         // Set (or remove) multisig for the corresponding social id
-        ServiceInfo storage serviceInfo = mapSocialIdServiceInfo[socialId];
+        ServiceInfo storage serviceInfo = mapSocialIdServiceInfo[serviceOwner];
+        serviceInfo.socialId = socialId;
         serviceInfo.serviceId = serviceId;
         serviceInfo.multisig = multisig;
         serviceInfo.stakingInstance = stakingInstance;
-        serviceInfo.serviceOwner = serviceOwner;
 
-        emit SetServiceInfoForId(socialId, serviceId, multisig, stakingInstance, serviceOwner);
+        emit SetServiceInfoForId(serviceOwner, socialId, serviceId, multisig, stakingInstance);
     }
 
     /// @dev Sets contribute agent statues.
