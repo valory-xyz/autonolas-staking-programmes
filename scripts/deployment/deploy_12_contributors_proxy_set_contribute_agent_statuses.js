@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const contributorsProxyAddress = parsedData.contributorsProxyAddress;
-    const bridgeMediatorAddress = parsedData.bridgeMediatorAddress;
+    const contributeAgentAddress = parsedData.contributeAgentAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -48,9 +48,9 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
 
     // Transaction signing and execution
-    console.log("12. EOA to change owner in ContributorsProxy");
-    console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).changeOwner()");
-    const result = await contributorsProxy.changeOwner(bridgeMediatorAddress, { gasPrice });
+    console.log("12. EOA to set contribute agent statuses in ContributorsProxy");
+    console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).setContributeAgentStatuses()");
+    const result = await contributorsProxy.setContributeAgentStatuses([contributeAgentAddress], [true], { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: ContributorsProxy");
