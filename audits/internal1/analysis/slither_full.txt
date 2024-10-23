@@ -1,0 +1,33 @@
+
+
+Reentrancy in ContributeManager.createAndStake(uint256,address) (ContributeManager-flatten.sol#361-411):
+	External calls:
+	- IToken(olas).transferFrom(msg.sender,address(this),totalBond) (ContributeManager-flatten.sol#400)
+	- IToken(olas).approve(serviceRegistryTokenUtility,totalBond) (ContributeManager-flatten.sol#402)
+	- (serviceId,multisig) = _createAndDeploy(olas,minStakingDeposit) (ContributeManager-flatten.sol#405)
+		- serviceId = IService(serviceManager).create(address(this),token,configHash,agentIds,agentParams,uint32(THRESHOLD)) (ContributeManager-flatten.sol#320-321)
+		- IService(serviceManager).activateRegistration{value: 1}(serviceId) (ContributeManager-flatten.sol#324)
+		- IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId,instances,agentIds) (ContributeManager-flatten.sol#327)
+		- multisig = IService(serviceManager).deploy(serviceId,safeMultisig,data) (ContributeManager-flatten.sol#335)
+	- _stake(socialId,serviceId,multisig,stakingInstance) (ContributeManager-flatten.sol#408)
+		- IContributors(contributorsProxy).setServiceInfoForId(msg.sender,socialId,serviceId,multisig,stakingInstance) (ContributeManager-flatten.sol#348)
+		- IToken(serviceRegistry).approve(stakingInstance,serviceId) (ContributeManager-flatten.sol#351)
+		- IStaking(stakingInstance).stake(serviceId) (ContributeManager-flatten.sol#354)
+	External calls sending eth:
+	- (serviceId,multisig) = _createAndDeploy(olas,minStakingDeposit) (ContributeManager-flatten.sol#405)
+		- IService(serviceManager).activateRegistration{value: 1}(serviceId) (ContributeManager-flatten.sol#324)
+		- IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId,instances,agentIds) (ContributeManager-flatten.sol#327)
+	Event emitted after the call(s):
+	- CreatedAndStaked(socialId,msg.sender,serviceId,multisig,stakingInstance) (ContributeManager-flatten.sol#410)
+
+Reentrancy in ContributeManager.unstake() (ContributeManager-flatten.sol#444-463):
+	External calls:
+	- IStaking(stakingInstance).unstake(serviceId) (ContributeManager-flatten.sol#453)
+	- IToken(serviceRegistry).transfer(msg.sender,serviceId) (ContributeManager-flatten.sol#456)
+	- IContributors(contributorsProxy).setServiceInfoForId(msg.sender,0,0,address(0),address(0)) (ContributeManager-flatten.sol#460)
+	Event emitted after the call(s):
+	- Unstaked(socialId,msg.sender,serviceId,multisig,stakingInstance) (ContributeManager-flatten.sol#462)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+
+
