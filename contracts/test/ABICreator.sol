@@ -8,6 +8,9 @@ import "@gnosis.pm/safe-contracts/contracts/handler/DefaultCallbackHandler.sol";
 import "@gnosis.pm/safe-contracts/contracts/libraries/MultiSendCallOnly.sol";
 
 // Getting ABIs for registry contracts
+import {ComponentRegistry} from "../../lib/autonolas-registries/contracts/ComponentRegistry.sol";
+import {AgentRegistry} from "../../lib/autonolas-registries/contracts/AgentRegistry.sol";
+import {ServiceRegistry} from "../../lib/autonolas-registries/contracts/ServiceRegistry.sol";
 import {OperatorWhitelist} from "../../lib/autonolas-registries/contracts/utils/OperatorWhitelist.sol";
 import {ServiceRegistryL2} from "../../lib/autonolas-registries/contracts/ServiceRegistryL2.sol";
 import {ServiceRegistryTokenUtility} from "../../lib/autonolas-registries/contracts/ServiceRegistryTokenUtility.sol";
