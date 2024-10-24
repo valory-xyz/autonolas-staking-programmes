@@ -17,12 +17,12 @@ interface IContributors {
         address stakingInstance
     ) external;
 
-    /// @dev Gets service info corresponding to a specified social Id.
+    /// @dev Gets service info corresponding to a specified service owner.
     /// @param serviceOwner Service owner.
     /// @return socialId Social Id.
     /// @return serviceId Corresponding service Id.
     /// @return multisig Corresponding service multisig.
     /// @return stakingInstance Staking instance address.
-    function mapSocialIdServiceInfo(address serviceOwner) external view
+    function mapAccountServiceInfo(address serviceOwner) external view
     returns (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance);
 }

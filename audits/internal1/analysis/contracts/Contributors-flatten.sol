@@ -1,5 +1,7 @@
+// Sources flattened with hardhat v2.22.4 https://hardhat.org
+
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.25;
 
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
@@ -13,7 +15,7 @@ error AlreadyInitialized();
 error ZeroAddress();
 
 /// @dev Only manager is allowed to have access.
-error ManagerOnly(address sender, address manager);
+error OnlyManager(address sender, address manager);
 
 /// @dev Wrong length of two arrays.
 /// @param numValues1 Number of values in a first array.
@@ -47,7 +49,7 @@ contract Contributors {
     event ManagerUpdated(address indexed manager);
     event SetServiceInfoForId(address indexed serviceOwner, uint256 indexed socialId, uint256 indexed serviceId,
         address multisig, address stakingInstance);
-    event SetContributeServiceStatuses(address[] contributeServices, bool[] statuses);
+    event SetContributeAgentStatuses(address[] contributeAgents, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
 
     // Version number
@@ -60,21 +62,28 @@ contract Contributors {
     // Service manager contract address
     address public manager;
 
-    // Mapping of account address => service info
-    mapping(address => ServiceInfo) public mapAccountServiceInfo;
+    // Mapping of address => service info
+    mapping(address => ServiceInfo) public mapSocialIdServiceInfo;
     // Mapping of service multisig address => activity
     mapping(address => uint256) public mapMutisigActivities;
     // Mapping of whitelisted contributor agents
     mapping(address => bool) public mapContributeAgents;
 
     /// @dev Contributors initializer.
-    function initialize() external{
+    /// @param _manager Manager address.
+    function initialize(address _manager) external{
         // Check for already initialized
         if (owner != address(0)) {
             revert AlreadyInitialized();
         }
 
+        // Check for zero address
+        if (_manager == address(0)) {
+            revert ZeroAddress();
+        }
+
         owner = msg.sender;
+        manager = _manager;
     }
 
     /// @dev Changes the contributors implementation contract address.
@@ -147,11 +156,11 @@ contract Contributors {
     ) external {
         // Check for manager
         if (msg.sender != manager) {
-            revert ManagerOnly(msg.sender, manager);
+            revert OnlyManager(msg.sender, manager);
         }
 
         // Set (or remove) multisig for the corresponding social id
-        ServiceInfo storage serviceInfo = mapAccountServiceInfo[serviceOwner];
+        ServiceInfo storage serviceInfo = mapSocialIdServiceInfo[serviceOwner];
         serviceInfo.socialId = socialId;
         serviceInfo.serviceId = serviceId;
         serviceInfo.multisig = multisig;
@@ -160,34 +169,33 @@ contract Contributors {
         emit SetServiceInfoForId(serviceOwner, socialId, serviceId, multisig, stakingInstance);
     }
 
-    /// @dev Sets contribute service multisig statues.
-    /// @param contributeServices Contribute service multisig addresses.
+    /// @dev Sets contribute agent statues.
+    /// @param contributeAgents Contribute agent addresses.
     /// @param statuses Corresponding whitelisting statues.
-    function setContributeServiceStatuses(address[] memory contributeServices, bool[] memory statuses) external {
+    function setContributeAgentStatuses(address[] memory contributeAgents, bool[] memory statuses) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
         // Check for array lengths
-        if (contributeServices.length == 0 || contributeServices.length != statuses.length) {
-            revert WrongArrayLength(contributeServices.length, statuses.length);
+        if (contributeAgents.length != statuses.length) {
+            revert WrongArrayLength(contributeAgents.length, statuses.length);
         }
 
-        // Traverse all contribute service multisigs and statuses
-        for (uint256 i = 0; i < contributeServices.length; ++i) {
-            // Check for zero addresses
-            if (contributeServices[i] == address(0)) {
+        // Traverse all contribute agents and statuses
+        for (uint256 i = 0; i < contributeAgents.length; ++i) {
+            if (contributeAgents[i] == address(0)) {
                 revert ZeroAddress();
             }
 
-            mapContributeAgents[contributeServices[i]] = statuses[i];
+            mapContributeAgents[contributeAgents[i]] = statuses[i];
         }
 
-        emit SetContributeServiceStatuses(contributeServices, statuses);
+        emit SetContributeAgentStatuses(contributeAgents, statuses);
     }
 
-    /// @dev Increases multisig activity by the contribute service.
+    /// @dev Increases multisig activity by the contribute agent.
     /// @param multisigs Multisig addresses.
     /// @param activityChanges Corresponding activity changes
     function increaseActivity(address[] memory multisigs, uint256[] memory activityChanges) external {
@@ -197,7 +205,7 @@ contract Contributors {
         }
 
         // Check for array lengths
-        if (multisigs.length == 0 || multisigs.length != activityChanges.length) {
+        if (multisigs.length != activityChanges.length) {
             revert WrongArrayLength(multisigs.length, activityChanges.length);
         }
 

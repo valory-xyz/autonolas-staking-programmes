@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// Token interface
+// ERC20 token interface
 interface IToken {
     /// @dev Transfers the token amount.
     /// @param to Address to transfer to.
@@ -21,4 +21,24 @@ interface IToken {
     /// @param amount Token amount.
     /// @return True if the function execution is successful.
     function approve(address spender, uint256 amount) external returns (bool);
+}
+
+// ERC721 token interface
+interface INFToken {
+    /// @dev Sets token `id` as the allowance of `spender` over the caller's tokens.
+    /// @param spender Account address that will be able to transfer the token on behalf of the caller.
+    /// @param id Token id.
+    function approve(address spender, uint256 id) external;
+
+    /// @dev Transfers a specified token Id.
+    /// @param from Account address to transfer from.
+    /// @param to Account address to transfer to.
+    /// @param id Token id.
+    function transferFrom(address from, address to, uint256 id) external;
+
+    /// @dev Transfers a specified token Id with a callback.
+    /// @param from Account address to transfer from.
+    /// @param to Account address to transfer to.
+    /// @param id Token id.
+    function safeTransferFrom(address from, address to, uint256 id) external;
 }

@@ -1,11 +1,174 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+// Sources flattened with hardhat v2.22.4 https://hardhat.org
+pragma solidity ^0.8.25;
 
-import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
-import {IContributors} from "./interfaces/IContributors.sol";
-import {IService} from "./interfaces/IService.sol";
-import {IStaking} from "./interfaces/IStaking.sol";
-import {IToken, INFToken} from "./interfaces/IToken.sol";
+// SPDX-License-Identifier: MIT
+// Contributors interface
+interface IContributors {
+    /// @dev Sets service info for the social id.
+    /// @param serviceOwner Service owner.
+    /// @param socialId Social id.
+    /// @param serviceId Service Id.
+    /// @param multisig Service multisig address.
+    /// @param stakingInstance Staking instance address.
+    function setServiceInfoForId(
+        address serviceOwner,
+        uint256 socialId,
+        uint256 serviceId,
+        address multisig,
+        address stakingInstance
+    ) external;
+
+    /// @dev Gets service info corresponding to a specified social Id.
+    /// @param serviceOwner Service owner.
+    /// @return socialId Social Id.
+    /// @return serviceId Corresponding service Id.
+    /// @return multisig Corresponding service multisig.
+    /// @return stakingInstance Staking instance address.
+    function mapSocialIdServiceInfo(address serviceOwner) external view
+    returns (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance);
+}
+
+
+// Service registry related interface
+interface IService {
+    struct AgentParams {
+        // Number of agent instances
+        uint32 slots;
+        // Bond per agent instance
+        uint96 bond;
+    }
+
+    /// @dev Creates a new service.
+    /// @param serviceOwner Individual that creates and controls a service.
+    /// @param token ERC20 token address for the security deposit, or ETH.
+    /// @param configHash IPFS hash pointing to the config metadata.
+    /// @param agentIds Canonical agent Ids.
+    /// @param agentParams Number of agent instances and required bond to register an instance in the service.
+    /// @param threshold Threshold for a multisig composed by agents.
+    /// @return serviceId Created service Id.
+    function create(
+        address serviceOwner,
+        address token,
+        bytes32 configHash,
+        uint32[] memory agentIds,
+        AgentParams[] memory agentParams,
+        uint32 threshold
+    ) external returns (uint256 serviceId);
+
+    /// @dev Activates the service and its sensitive components.
+    /// @param serviceId Correspondent service Id.
+    /// @return success True, if function executed successfully.
+    function activateRegistration(uint256 serviceId) external payable returns (bool success);
+
+    /// @dev Registers agent instances.
+    /// @param serviceId Service Id to be updated.
+    /// @param agentInstances Agent instance addresses.
+    /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
+    /// @return success True, if function executed successfully.
+    function registerAgents(
+        uint256 serviceId,
+        address[] memory agentInstances,
+        uint32[] memory agentIds
+    ) external payable returns (bool success);
+
+    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
+    /// @param serviceId Correspondent service Id.
+    /// @param multisigImplementation Multisig implementation address.
+    /// @param data Data payload for the multisig creation.
+    /// @return multisig Address of the created multisig.
+    function deploy(
+        uint256 serviceId,
+        address multisigImplementation,
+        bytes memory data
+    ) external returns (address multisig);
+
+    /// @dev Gets the serviceRegistry address.
+    /// @return serviceRegistry address.
+    function serviceRegistry() external returns (address);
+
+    /// @dev Gets the serviceRegistryTokenUtility address.
+    /// @return serviceRegistryTokenUtility address.
+    function serviceRegistryTokenUtility() external returns (address);
+
+    /// @dev Gets the service instance from the map of services.
+    /// @param serviceId Service Id.
+    /// @return securityDeposit Registration activation deposit.
+    /// @return multisig Service multisig address.
+    /// @return configHash IPFS hashes pointing to the config metadata.
+    /// @return threshold Agent instance signers threshold.
+    /// @return maxNumAgentInstances Total number of agent instances.
+    /// @return numAgentInstances Actual number of agent instances.
+    /// @return state Service state.
+    function mapServices(uint256 serviceId) external view returns (
+        uint96 securityDeposit,
+        address multisig,
+        bytes32 configHash,
+        uint32 threshold,
+        uint32 maxNumAgentInstances,
+        uint32 numAgentInstances,
+        uint8 state
+    );
+}
+
+// Staking interface
+interface IStaking {
+    /// @dev Gets service staking token.
+    /// @return Service staking token address.
+    function stakingToken() external view returns (address);
+
+    /// @dev Gets minimum service staking deposit value required for staking.
+    /// @return Minimum service staking deposit.
+    function minStakingDeposit() external view returns (uint256);
+
+    /// @dev Gets number of required agent instances in the service.
+    /// @return Number of agent instances.
+    function numAgentInstances() external view returns (uint256);
+
+    /// @dev Gets the service threshold.
+    /// @return Threshold.
+    function threshold() external view returns (uint256);
+
+    /// @dev Stakes the service.
+    /// @param serviceId Service Id.
+    function stake(uint256 serviceId) external;
+
+    /// @dev Unstakes the service with collected reward, if available.
+    /// @param serviceId Service Id.
+    /// @return reward Staking reward.
+    function unstake(uint256 serviceId) external returns (uint256);
+
+    /// @dev Claims rewards for the service without an additional checkpoint call.
+    /// @param serviceId Service Id.
+    /// @return Staking reward.
+    function claim(uint256 serviceId) external returns (uint256);
+
+    /// @dev Verifies a service staking contract instance.
+    /// @param instance Service staking proxy instance.
+    /// @return True, if verification is successful.
+    function verifyInstance(address instance) external view returns (bool);
+}
+
+// Token interface
+interface IToken {
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
+
+    /// @dev Transfers the token amount that was previously approved up until the maximum allowance.
+    /// @param from Account address to transfer from.
+    /// @param to Account address to transfer to.
+    /// @param amount Amount to transfer to.
+    /// @return True if the function execution is successful.
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+
+    /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+    /// @param spender Account address that will be able to transfer tokens on behalf of the caller.
+    /// @param amount Token amount.
+    /// @return True if the function execution is successful.
+    function approve(address spender, uint256 amount) external returns (bool);
+}
 
 // Multisig interface
 interface IMultisig {
@@ -19,9 +182,6 @@ error ZeroAddress();
 
 /// @dev Zero value.
 error ZeroValue();
-
-/// @dev Caught reentrancy violation.
-error ReentrancyGuard();
 
 /// @dev Service is already created and staked for the contributor.
 /// @param socialId Social Id.
@@ -54,7 +214,7 @@ error ServiceOwnerOnly(uint256 serviceId, address sender, address serviceOwner);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Tatiana Priemova - <tatiana.priemova@valory.xyz>
 /// @author David Vilela - <david.vilelafreire@valory.xyz>
-contract ContributeManager is ERC721TokenReceiver {
+contract ContributeManager {
     event CreatedAndStaked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
         address indexed multisig, address stakingInstance);
     event Staked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
@@ -90,9 +250,7 @@ contract ContributeManager is ERC721TokenReceiver {
     address public immutable fallbackHandler;
 
     // Nonce
-    uint256 internal _nonce;
-    // Reentrancy lock
-    uint256 internal _locked = 1;
+    uint256 internal nonce;
 
     /// @dev ContributeManager constructor.
     /// @param _contributorsProxy Contributors proxy address.
@@ -169,7 +327,7 @@ contract ContributeManager is ERC721TokenReceiver {
         IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId, instances, agentIds);
 
         // Prepare Safe multisig data
-        uint256 localNonce = _nonce;
+        uint256 localNonce = nonce;
         uint256 randomNonce = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, localNonce)));
         bytes memory data = abi.encodePacked(address(0), fallbackHandler, address(0), address(0), uint256(0),
             randomNonce, "0x");
@@ -177,7 +335,7 @@ contract ContributeManager is ERC721TokenReceiver {
         multisig = IService(serviceManager).deploy(serviceId, safeMultisig, data);
 
         // Update the nonce
-        _nonce = localNonce + 1;
+        nonce = localNonce + 1;
     }
 
     /// @dev Stakes the already deployed service.
@@ -190,7 +348,7 @@ contract ContributeManager is ERC721TokenReceiver {
         IContributors(contributorsProxy).setServiceInfoForId(msg.sender, socialId, serviceId, multisig, stakingInstance);
 
         // Approve service NFT for the staking instance
-        INFToken(serviceRegistry).approve(stakingInstance, serviceId);
+        IToken(serviceRegistry).approve(stakingInstance, serviceId);
 
         // Stake the service
         IStaking(stakingInstance).stake(serviceId);
@@ -201,19 +359,13 @@ contract ContributeManager is ERC721TokenReceiver {
     /// @param socialId Contributor social Id.
     /// @param stakingInstance Contribute staking instance address.
     function createAndStake(uint256 socialId, address stakingInstance) external payable {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
         // Check for zero value
         if (socialId == 0) {
             revert ZeroValue();
         }
 
         // Check for existing service corresponding to the msg.sender
-        (, uint256 serviceId, address multisig, ) = IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
+        (, uint256 serviceId, address multisig, ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceId > 0) {
             revert ServiceAlreadyStaked(socialId, serviceId, multisig);
         }
@@ -237,8 +389,7 @@ contract ContributeManager is ERC721TokenReceiver {
         uint256 threshold = IStaking(stakingInstance).threshold();
         // Check for number of agent instances that must be equal to one,
         // since msg.sender is the only service multisig owner
-        if ((numAgentInstances > 0 &&  numAgentInstances != NUM_AGENT_INSTANCES) ||
-            (threshold > 0 && threshold != THRESHOLD)) {
+        if (numAgentInstances != NUM_AGENT_INSTANCES || threshold != THRESHOLD) {
             revert WrongStakingInstance(stakingInstance);
         }
 
@@ -257,8 +408,6 @@ contract ContributeManager is ERC721TokenReceiver {
         _stake(socialId, serviceId, multisig, stakingInstance);
 
         emit CreatedAndStaked(socialId, msg.sender, serviceId, multisig, stakingInstance);
-
-        _locked = 1;
     }
 
     /// @dev Stakes the already deployed service.
@@ -266,14 +415,8 @@ contract ContributeManager is ERC721TokenReceiver {
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance.
     function stake(uint256 socialId, uint256 serviceId, address stakingInstance) external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
         // Check for existing service corresponding to the msg.sender
-        (, uint256 serviceIdCheck, address multisig, ) = IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
+        (, uint256 serviceIdCheck, address multisig, ) = IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceIdCheck > 0) {
             revert ServiceAlreadyStaked(socialId, serviceIdCheck, multisig);
         }
@@ -289,27 +432,19 @@ contract ContributeManager is ERC721TokenReceiver {
         }
 
         // Transfer the service NFT
-        INFToken(serviceRegistry).safeTransferFrom(msg.sender, address(this), serviceId);
+        IToken(serviceRegistry).transferFrom(msg.sender, address(this), serviceId);
 
         // Stake the service
         _stake(socialId, serviceId, multisig, stakingInstance);
 
         emit Staked(socialId, msg.sender, serviceId, multisig, stakingInstance);
-
-        _locked = 1;
     }
 
     /// @dev Unstakes service Id corresponding to the msg.sender and clears the contributor record.
     function unstake() external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
         // Check for existing service corresponding to the social Id
         (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
-            IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
+            IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceId == 0) {
             revert ServiceNotDefined(socialId);
         }
@@ -318,29 +453,21 @@ contract ContributeManager is ERC721TokenReceiver {
         IStaking(stakingInstance).unstake(serviceId);
 
         // Transfer the service back to the original owner
-        INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId);
+        IToken(serviceRegistry).transfer(msg.sender, serviceId);
 
         // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
         // If the same service is staked back, the multisig activity continues being tracked
         IContributors(contributorsProxy).setServiceInfoForId(msg.sender, 0, 0, address(0), address(0));
 
         emit Unstaked(socialId, msg.sender, serviceId, multisig, stakingInstance);
-
-        _locked = 1;
     }
 
     /// @dev Claims rewards for the service corresponding to msg.sender.
     /// @return reward Staking reward.
     function claim() external returns (uint256 reward) {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
         // Check for existing service corresponding to the social Id
         (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
-            IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
+            IContributors(contributorsProxy).mapSocialIdServiceInfo(msg.sender);
         if (serviceId == 0) {
             revert ServiceNotDefined(socialId);
         }
@@ -349,7 +476,5 @@ contract ContributeManager is ERC721TokenReceiver {
         reward = IStaking(stakingInstance).claim(serviceId);
 
         emit Claimed(socialId, msg.sender, serviceId, multisig, stakingInstance);
-
-        _locked = 1;
     }
 }

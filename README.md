@@ -71,6 +71,37 @@ The audit is provided as development matures. The latest audit report can be fou
 - Create staking proxy instance on [Launch](https://launch.olas.network/);
 - Vote for staking contracts on [Govern](https://govern.olas.network/).
 
+## Contribute Architecture
+```mermaid
+---
+title: Contribute Architecture
+---
+flowchart LR
+    DAO -- changeManager --> ContributorsProxy
+    DAO -- setContributeServiceStatuses --> ContributorsProxy
+    DAO -- changeOwner --> ContributorsProxy
+    User -- createAndStake --> ContributeManager
+    User -- stake --> ContributeManager
+    User -- unstake --> ContributeManager
+    User -- claim --> ContributeManager
+    ContributeService -- checkpoint --> StakingInstance -- getNonces --> ContributeActivityChecker
+    User -- approve --> OLAS
+    ContributeManager -- create --> StakingRegistryL2
+    StakingRegistryL2 -- mint --> ERC721
+    ContributeManager -- stake --> StakingInstance
+    ContributeManager -- unstake --> StakingInstance
+    ContributeManager -- claim --> StakingInstance
+    subgraph Service registry contracts
+    StakingInstance
+    StakingRegistryL2
+    end
+    subgraph Contribute contracts
+    ContributeService -- increaseActivity --> ContributorsProxy
+    ContributorsProxy -- delegatecall --> Contributors
+    ContributeManager -- setServiceInfoForId --> ContributorsProxy
+    ContributeActivityChecker -- mapMutisigActivities --> ContributorsProxy
+    end
+```
 
 ## Acknowledgements
 The staking programmes contracts were inspired and based on the following sources:
