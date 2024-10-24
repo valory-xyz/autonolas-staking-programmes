@@ -2,11 +2,8 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
-const safeContracts = require("@gnosis.pm/safe-contracts");
 
 describe("Staking Contribute", function () {
-    let componentRegistry;
-    let agentRegistry;
     let serviceRegistry;
     let serviceRegistryTokenUtility;
     let operatorWhitelist;
