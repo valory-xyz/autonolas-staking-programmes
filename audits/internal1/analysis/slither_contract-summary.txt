@@ -1,0 +1,84 @@
+'solc --version' running
+'solc ./ContributeManager-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./ContributorsProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./Contributors-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./ContributeActivityChecker-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+INFO:Printers:
++ Contract IContributors (Most derived contract)
+  - From IContributors
+    - mapSocialIdServiceInfo(address) (external)
+    - setServiceInfoForId(address,uint256,uint256,address,address) (external)
+
++ Contract IService (Most derived contract)
+  - From IService
+    - activateRegistration(uint256) (external)
+    - create(address,address,bytes32,uint32[],IService.AgentParams[],uint32) (external)
+    - deploy(uint256,address,bytes) (external)
+    - mapServices(uint256) (external)
+    - registerAgents(uint256,address[],uint32[]) (external)
+    - serviceRegistry() (external)
+    - serviceRegistryTokenUtility() (external)
+
++ Contract IStaking (Most derived contract)
+  - From IStaking
+    - claim(uint256) (external)
+    - minStakingDeposit() (external)
+    - numAgentInstances() (external)
+    - stake(uint256) (external)
+    - stakingToken() (external)
+    - threshold() (external)
+    - unstake(uint256) (external)
+    - verifyInstance(address) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IMultisig (Most derived contract)
+  - From IMultisig
+    - getOwners() (external)
+
++ Contract ContributeManager (Most derived contract)
+  - From ContributeManager
+    - _createAndDeploy(address,uint256) (internal)
+    - _stake(uint256,uint256,address,address) (internal)
+    - claim() (external)
+    - constructor(address,address,address,address,address,address,uint256,bytes32) (public)
+    - createAndStake(uint256,address) (external)
+    - stake(uint256,uint256,address) (external)
+    - unstake() (external)
+
+INFO:Printers:
++ Contract ContributorsProxy (Upgradeable Proxy) (Most derived contract)
+  - From ContributorsProxy
+    - constructor(address,bytes) (public)
+    - fallback() (external)
+
+INFO:Printers:
++ Contract Contributors (Most derived contract)
+  - From Contributors
+    - changeImplementation(address) (external)
+    - changeManager(address) (external)
+    - changeOwner(address) (external)
+    - increaseActivity(address[],uint256[]) (external)
+    - initialize(address) (external)
+    - setContributeAgentStatuses(address[],bool[]) (external)
+    - setServiceInfoForId(address,uint256,uint256,address,address) (external)
+
+INFO:Printers:
++ Contract IContributors (Most derived contract)
+  - From IContributors
+    - mapMutisigActivities(address) (external)
+
++ Contract ContributeActivityChecker (Most derived contract)
+  - From ContributeActivityChecker
+    - constructor(address,uint256) (public)
+    - getMultisigNonces(address) (external)
+    - isRatioPass(uint256[],uint256[],uint256) (external)
+
+INFO:Slither:. analyzed (10 contracts)
