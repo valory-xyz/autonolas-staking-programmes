@@ -1,0 +1,117 @@
+'solc --version' running
+'solc ./ContributeManager-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./ContributorsProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./Contributors-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./ContributeActivityChecker-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-staking-programmes/audits/internal1/analysis/contracts' running
+INFO:Printers:
+#################################
+####### ContributeManager #######
+#################################
+
+## Constructor Call Sequence
+	- ContributeManager
+
+## Constructor Definitions
+
+### ContributeManager
+
+     constructor(
+        address _contributorsProxy,
+        address _serviceManager,
+        address _olas,
+        address _stakingFactory,
+        address _safeMultisig,
+        address _fallbackHandler,
+        uint256 _agentId,
+        bytes32 _configHash
+    ) {
+        // Check for zero addresses
+        if (_contributorsProxy == address(0) || _serviceManager == address(0) || _olas == address(0) ||
+            _stakingFactory == address(0) || _safeMultisig == address(0) || _fallbackHandler == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero values
+        if (_agentId == 0 || _configHash == 0) {
+            revert ZeroValue();
+        }
+
+        agentId = _agentId;
+        configHash = _configHash;
+
+        contributorsProxy = _contributorsProxy;
+        serviceManager = _serviceManager;
+        olas = _olas;
+        stakingFactory = _stakingFactory;
+        safeMultisig = _safeMultisig;
+        fallbackHandler = _fallbackHandler;
+        serviceRegistry = IService(serviceManager).serviceRegistry();
+        serviceRegistryTokenUtility = IService(serviceManager).serviceRegistryTokenUtility();
+    }
+
+INFO:Printers:
+#################################
+####### ContributorsProxy #######
+#################################
+
+## Constructor Call Sequence
+	- ContributorsProxy
+
+## Constructor Definitions
+
+### ContributorsProxy
+
+     constructor(address implementation, bytes memory contributorsData) {
+        // Check for the zero address, since the delegatecall works even with the zero one
+        if (implementation == address(0)) {
+            revert ZeroImplementationAddress();
+        }
+
+        // Check for the zero data
+        if (contributorsData.length == 0) {
+            revert ZeroContributorsData();
+        }
+
+        // Store the contributors implementation address
+        assembly {
+            sstore(CONTRIBUTORS_PROXY, implementation)
+        }
+        // Initialize proxy tokenomics storage
+        (bool success, ) = implementation.delegatecall(contributorsData);
+        if (!success) {
+            revert InitializationFailed();
+        }
+    }
+
+INFO:Printers:
+INFO:Printers:
+#########################################
+####### ContributeActivityChecker #######
+#########################################
+
+## Constructor Call Sequence
+	- ContributeActivityChecker
+
+## Constructor Definitions
+
+### ContributeActivityChecker
+
+     constructor(address _contributorsProxy, uint256 _livenessRatio) {
+        // Check the zero address
+        if (_contributorsProxy == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_livenessRatio == 0) {
+            revert ZeroValue();
+        }
+
+        contributorsProxy = _contributorsProxy;
+        livenessRatio = _livenessRatio;
+    }
+
+INFO:Slither:. analyzed (10 contracts)
