@@ -85,7 +85,9 @@ flowchart LR
     User -- unstake --> ContributeManager
     User -- claim --> ContributeManager
     User -- checkpoint --> StakingInstance -- getNonces --> ContributeActivityChecker
-    ContributeManager -- mint --> StakingRegistryL2
+    User -- approve --> OLAS
+    ContributeManager -- create --> StakingRegistryL2
+    StakingRegistryL2 -- mint --> ERC721
     ContributeManager -- stake --> StakingInstance
     ContributeManager -- unstake --> StakingInstance
     ContributeManager -- claim --> StakingInstance
