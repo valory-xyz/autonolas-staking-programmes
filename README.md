@@ -73,23 +73,32 @@ The audit is provided as development matures. The latest audit report can be fou
 
 ## Contribute Architecture
 ```mermaid
+---
+title: Contribute Architecture
+---
 flowchart LR
-    Deployer -- deploy --> Contributors
-    Deployer -- deploy --> ContributorsProxy
-    Deployer -- deploy --> ContributeManager
-    Deployer -- deploy --> ContributeActivityChecker
-    Deployer -- changeManager --> ContributorsProxy --> Contributors
-    Deployer -- setContributeAgentStatuses --> ContributorsProxy
-    Deployer -- changeOwner --> ContributorsProxy
-    User -- createAndStake --> ContributeManager -- setServiceInfoForId --> ContributorsProxy
+    DAO -- changeManager --> ContributorsProxy
+    DAO -- setContributeAgentStatuses --> ContributorsProxy
+    DAO -- changeOwner --> ContributorsProxy
+    User -- createAndStake --> ContributeManager
     User -- stake --> ContributeManager
     User -- unstake --> ContributeManager
     User -- claim --> ContributeManager
-    User -- checkpoint --> StakingInstance -- getNonces --> ContributeActivityChecker -- mapMutisigActivities --> ContributorsProxy
+    User -- checkpoint --> StakingInstance -- getNonces --> ContributeActivityChecker
     ContributeManager -- mint --> StakingRegistryL2
     ContributeManager -- stake --> StakingInstance
     ContributeManager -- unstake --> StakingInstance
-    Agent -- increaseActivity --> ContributorsProxy
+    ContributeManager -- claim --> StakingInstance
+    subgraph Service registry contracts
+    StakingInstance
+    StakingRegistryL2
+    end
+    subgraph Contribute contracts
+    ContributeService -- increaseActivity --> ContributorsProxy
+    ContributorsProxy -- delegatecall --> Contributors
+    ContributeManager -- setServiceInfoForId --> ContributorsProxy
+    ContributeActivityChecker -- mapMutisigActivities --> ContributorsProxy
+    end
 ```
 
 ## Acknowledgements
