@@ -78,13 +78,13 @@ title: Contribute Architecture
 ---
 flowchart LR
     DAO -- changeManager --> ContributorsProxy
-    DAO -- setContributeAgentStatuses --> ContributorsProxy
+    DAO -- setContributeServiceStatuses --> ContributorsProxy
     DAO -- changeOwner --> ContributorsProxy
     User -- createAndStake --> ContributeManager
     User -- stake --> ContributeManager
     User -- unstake --> ContributeManager
     User -- claim --> ContributeManager
-    User -- checkpoint --> StakingInstance -- getNonces --> ContributeActivityChecker
+    ContributeService -- checkpoint --> StakingInstance -- getNonces --> ContributeActivityChecker
     User -- approve --> OLAS
     ContributeManager -- create --> StakingRegistryL2
     StakingRegistryL2 -- mint --> ERC721

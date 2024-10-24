@@ -13,7 +13,7 @@ error AlreadyInitialized();
 error ZeroAddress();
 
 /// @dev Only manager is allowed to have access.
-error OnlyManager(address sender, address manager);
+error ManagerOnly(address sender, address manager);
 
 /// @dev Wrong length of two arrays.
 /// @param numValues1 Number of values in a first array.
@@ -47,7 +47,7 @@ contract Contributors {
     event ManagerUpdated(address indexed manager);
     event SetServiceInfoForId(address indexed serviceOwner, uint256 indexed socialId, uint256 indexed serviceId,
         address multisig, address stakingInstance);
-    event SetContributeAgentStatuses(address[] contributeAgents, bool[] statuses);
+    event SetContributeServiceStatuses(address[] contributeServices, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
 
     // Version number
@@ -147,7 +147,7 @@ contract Contributors {
     ) external {
         // Check for manager
         if (msg.sender != manager) {
-            revert OnlyManager(msg.sender, manager);
+            revert ManagerOnly(msg.sender, manager);
         }
 
         // Set (or remove) multisig for the corresponding social id
@@ -160,34 +160,34 @@ contract Contributors {
         emit SetServiceInfoForId(serviceOwner, socialId, serviceId, multisig, stakingInstance);
     }
 
-    /// @dev Sets contribute agent statues.
-    /// @param contributeAgents Contribute agent addresses.
+    /// @dev Sets contribute service multisig statues.
+    /// @param contributeServices Contribute service multisig addresses.
     /// @param statuses Corresponding whitelisting statues.
-    function setContributeAgentStatuses(address[] memory contributeAgents, bool[] memory statuses) external {
+    function setContributeServiceStatuses(address[] memory contributeServices, bool[] memory statuses) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
         // Check for array lengths
-        if (contributeAgents.length != statuses.length) {
-            revert WrongArrayLength(contributeAgents.length, statuses.length);
+        if (contributeServices.length == 0 || contributeServices.length != statuses.length) {
+            revert WrongArrayLength(contributeServices.length, statuses.length);
         }
 
-        // Traverse all contribute agents and statuses
-        for (uint256 i = 0; i < contributeAgents.length; ++i) {
+        // Traverse all contribute service multisigs and statuses
+        for (uint256 i = 0; i < contributeServices.length; ++i) {
             // Check for zero addresses
-            if (contributeAgents[i] == address(0)) {
+            if (contributeServices[i] == address(0)) {
                 revert ZeroAddress();
             }
 
-            mapContributeAgents[contributeAgents[i]] = statuses[i];
+            mapContributeAgents[contributeServices[i]] = statuses[i];
         }
 
-        emit SetContributeAgentStatuses(contributeAgents, statuses);
+        emit SetContributeServiceStatuses(contributeServices, statuses);
     }
 
-    /// @dev Increases multisig activity by the contribute agent.
+    /// @dev Increases multisig activity by the contribute service.
     /// @param multisigs Multisig addresses.
     /// @param activityChanges Corresponding activity changes
     function increaseActivity(address[] memory multisigs, uint256[] memory activityChanges) external {
@@ -197,7 +197,7 @@ contract Contributors {
         }
 
         // Check for array lengths
-        if (multisigs.length != activityChanges.length) {
+        if (multisigs.length == 0 || multisigs.length != activityChanges.length) {
             revert WrongArrayLength(multisigs.length, activityChanges.length);
         }
 
