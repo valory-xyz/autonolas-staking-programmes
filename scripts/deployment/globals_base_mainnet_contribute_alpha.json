@@ -18,7 +18,7 @@
   "stakingTokenAddress":"0xEB5638eefE289691EcE01943f768EDBF96258a80",
   "stakingFactoryAddress":"0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
   "contributorsProxyAddress":"0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94",
-  "livenessRatio":"11574074074074",
+  "livenessRatio":"5787037037037",
   "contributeActivityCheckerAddress":"",
   "stakingParams":
     {
@@ -28,7 +28,7 @@
       "minStakingDeposit":"50000000000000000000",
       "minNumStakingPeriods":"3",
       "maxNumInactivityPeriods":"3",
-      "livenessPeriod":"86400",
+      "livenessPeriod":"172800",
       "timeForEmissions":"2592000",
       "numAgentInstances":"1",
       "agentIds":["41"],
