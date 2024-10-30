@@ -50,7 +50,7 @@ async function main() {
     // Transaction signing and execution
     console.log("11. EOA to change manager in ContributorsProxy");
     console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).changeManager()");
-    const result = await contributorsProxy.changeManager(contributeManagerAddress, { gasPrice });
+    const result = await contributorsProxy.connect(EOA).changeManager(contributeManagerAddress, { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: ContributorsProxy");
