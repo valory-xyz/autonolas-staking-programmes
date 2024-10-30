@@ -18,14 +18,14 @@
   "stakingTokenAddress":"0xEB5638eefE289691EcE01943f768EDBF96258a80",
   "stakingFactoryAddress":"0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
   "contributorsProxyAddress":"",
-  "livenessRatio":"11574074074074",
+  "livenessRatio":"115740740740740",
   "contributeActivityCheckerAddress":"",
   "stakingParams":
     {
       "metadataHash":"",
       "maxNumServices":"100",
-      "rewardsPerSecond":"4398148148152",
-      "minStakingDeposit":"50000000000000000000",
+      "rewardsPerSecond":"43981481481520",
+      "minStakingDeposit":"500000000000000000000",
       "minNumStakingPeriods":"3",
       "maxNumInactivityPeriods":"3",
       "livenessPeriod":"86400",
