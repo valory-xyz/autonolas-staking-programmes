@@ -50,7 +50,7 @@ async function main() {
     // Transaction signing and execution
     console.log("13. EOA to change owner in ContributorsProxy");
     console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).changeOwner()");
-    const result = await contributorsProxy.changeOwner(bridgeMediatorAddress, { gasPrice });
+    const result = await contributorsProxy.connect(EOA).changeOwner(bridgeMediatorAddress, { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: ContributorsProxy");

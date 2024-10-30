@@ -50,7 +50,7 @@ async function main() {
     // Transaction signing and execution
     console.log("12. EOA to set contribute agent statuses in ContributorsProxy");
     console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).setContributeAgentStatuses()");
-    const result = await contributorsProxy.setContributeAgentStatuses([contributeAgentAddress], [true], { gasPrice });
+    const result = await contributorsProxy.connect(EOA).setContributeAgentStatuses([contributeAgentAddress], [true], { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: ContributorsProxy");
