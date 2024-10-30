@@ -18,14 +18,14 @@
   "stakingTokenAddress":"0xEB5638eefE289691EcE01943f768EDBF96258a80",
   "stakingFactoryAddress":"0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
   "contributorsProxyAddress":"0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94",
-  "livenessRatio":"28935185185185",
-  "contributeActivityCheckerAddress":"0x1c80bdbed23dbb4acedca136382bea0162550515",
+  "livenessRatio":"5787037037037",
+  "contributeActivityCheckerAddress":"0x92499e80f50f06c4078794c179986907e7822ea1",
   "stakingParams":
     {
-      "metadataHash":"",
+      "metadataHash":"0xbbf5bbafa9bc23fa0c8df261a1a28ee2ec8b39c3f1c1ea8d03171f76a6016336",
       "maxNumServices":"100",
-      "rewardsPerSecond":"21990740740760",
-      "minStakingDeposit":"250000000000000000000",
+      "rewardsPerSecond":"4398148148152",
+      "minStakingDeposit":"50000000000000000000",
       "minNumStakingPeriods":"3",
       "maxNumInactivityPeriods":"3",
       "livenessPeriod":"172800",
@@ -36,7 +36,7 @@
       "configHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
       "proxyHash":"0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
       "serviceRegistry":"0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
-      "activityChecker":"0x1c80bdbed23dbb4acedca136382bea0162550515"
+      "activityChecker":"0x92499e80f50f06c4078794c179986907e7822ea1"
     },
-  "stakingTokenInstanceAddress":""
+  "stakingTokenInstanceAddress":"0x2C8a5aC7B431ce04a037747519BA475884BCe2Fb"
 }
