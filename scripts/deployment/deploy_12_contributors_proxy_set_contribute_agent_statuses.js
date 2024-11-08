@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const contributorsProxyAddress = parsedData.contributorsProxyAddress;
-    const contributeAgentAddress = parsedData.contributeAgentAddress;
+    const contributeServiceAddress = parsedData.contributeServiceAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -50,7 +50,7 @@ async function main() {
     // Transaction signing and execution
     console.log("12. EOA to set contribute agent statuses in ContributorsProxy");
     console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).setContributeAgentStatuses()");
-    const result = await contributorsProxy.connect(EOA).setContributeAgentStatuses([contributeAgentAddress], [true], { gasPrice });
+    const result = await contributorsProxy.connect(EOA).setContributeServiceStatuses([contributeServiceAddress], [true], { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: ContributorsProxy");
