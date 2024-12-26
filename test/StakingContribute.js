@@ -355,6 +355,9 @@ describe("Staking Contribute", function () {
             // Check returned token funds
             const balanceDiff = balanceAfter.sub(balanceBefore);
             expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
         });
 
         it("Mint, stake, unstake and stake again", async function () {
