@@ -12,9 +12,6 @@ error AlreadyInitialized();
 /// @dev Zero address.
 error ZeroAddress();
 
-/// @dev Only manager is allowed to have access.
-error ManagerOnly(address sender, address manager);
-
 /// @dev Wrong length of two arrays.
 /// @param numValues1 Number of values in a first array.
 /// @param numValues2 Number of values in a second array.
@@ -118,23 +115,6 @@ contract Contributors {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Changes contract manager address.
-    /// @param newManager Address of a new manager.
-    function changeManager(address newManager) external {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address
-        if (newManager == address(0)) {
-            revert ZeroAddress();
-        }
-
-        manager = newManager;
-        emit ManagerUpdated(newManager);
-    }
-
     /// @dev Sets service info for the social id.
     /// @param serviceOwner Service owner.
     /// @param socialId Social id.
@@ -148,9 +128,9 @@ contract Contributors {
         address multisig,
         address stakingInstance
     ) external {
-        // Check for manager
-        if (msg.sender != manager) {
-            revert ManagerOnly(msg.sender, manager);
+        // Check for contribute manager access
+        if (!mapContributeManagers[msg.sender]) {
+            revert UnauthorizedAccount(msg.sender);
         }
 
         // Set (or remove) multisig for the corresponding social id

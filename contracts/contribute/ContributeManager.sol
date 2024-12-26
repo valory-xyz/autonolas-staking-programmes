@@ -43,7 +43,7 @@ error WrongServiceSetup(uint256 socialId, uint256 serviceId, address multisig);
 /// @param socialId Social Id.
 /// @param serviceId Service Id.
 /// @param state Service state.
-error WrongServiceState(uint256 socialId, uint256 serviceId, uint8 state);
+error WrongServiceState(uint256 socialId, uint256 serviceId, IService.ServiceState state);
 
 /// @dev Service is not defined for the social Id.
 /// @param socialId Social Id.
@@ -347,7 +347,7 @@ contract ContributeManager is ERC721TokenReceiver {
             // If pre-registration - re-deploy service first
             _reDeploy(serviceId, stakingInstance, multisig);
         } else if (state != IService.ServiceState.Deployed) {
-            revert WrongServiceState(socialId, serviceId, uint8(state));
+            revert WrongServiceState(socialId, serviceId, state);
         }
 
         // Stake the service
@@ -521,7 +521,7 @@ contract ContributeManager is ERC721TokenReceiver {
         IService.ServiceState state;
         (, , , , , , state) = IService(serviceRegistry).mapServices(serviceId);
         if (state != IService.ServiceState.PreRegistration) {
-            revert WrongServiceState(socialId, serviceId, uint8(state));
+            revert WrongServiceState(socialId, serviceId, state);
         }
 
         // Transfer the service back to the original owner
