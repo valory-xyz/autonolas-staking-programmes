@@ -3,6 +3,15 @@ pragma solidity ^0.8.28;
 
 // Service registry related interface
 interface IService {
+    enum ServiceState {
+        NonExistent,
+        PreRegistration,
+        ActiveRegistration,
+        FinishedRegistration,
+        Deployed,
+        TerminatedBonded
+    }
+
     struct AgentParams {
         // Number of agent instances
         uint32 slots;
@@ -54,6 +63,18 @@ interface IService {
         bytes memory data
     ) external returns (address multisig);
 
+    /// @dev Terminates the service.
+    /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund Refund to return to the serviceOwner.
+    function terminate(uint256 serviceId) external returns (bool success, uint256 refund);
+
+    /// @dev Unbonds agent instances of the operator from the service.
+    /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
+    function unbond(uint256 serviceId) external returns (bool success, uint256 refund);
+
     /// @dev Gets the serviceRegistry address.
     /// @return serviceRegistry address.
     function serviceRegistry() external returns (address);
@@ -71,13 +92,6 @@ interface IService {
     /// @return maxNumAgentInstances Total number of agent instances.
     /// @return numAgentInstances Actual number of agent instances.
     /// @return state Service state.
-    function mapServices(uint256 serviceId) external view returns (
-        uint96 securityDeposit,
-        address multisig,
-        bytes32 configHash,
-        uint32 threshold,
-        uint32 maxNumAgentInstances,
-        uint32 numAgentInstances,
-        uint8 state
-    );
+    function mapServices(uint256 serviceId) external view returns (uint96 securityDeposit, address multisig,
+        bytes32 configHash, uint32 threshold, uint32 maxNumAgentInstances, uint32 numAgentInstances, ServiceState state);
 }

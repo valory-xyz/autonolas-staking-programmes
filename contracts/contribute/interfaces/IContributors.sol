@@ -9,13 +9,8 @@ interface IContributors {
     /// @param serviceId Service Id.
     /// @param multisig Service multisig address.
     /// @param stakingInstance Staking instance address.
-    function setServiceInfoForId(
-        address serviceOwner,
-        uint256 socialId,
-        uint256 serviceId,
-        address multisig,
-        address stakingInstance
-    ) external;
+    function setServiceInfoForId(address serviceOwner, uint256 socialId, uint256 serviceId, address multisig,
+        address stakingInstance) external;
 
     /// @dev Gets service info corresponding to a specified service owner.
     /// @param serviceOwner Service owner.
@@ -24,5 +19,5 @@ interface IContributors {
     /// @return multisig Corresponding service multisig.
     /// @return stakingInstance Staking instance address.
     function mapAccountServiceInfo(address serviceOwner) external view
-    returns (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance);
+        returns (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance);
 }
