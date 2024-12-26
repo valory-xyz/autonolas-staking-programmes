@@ -191,7 +191,7 @@ contract Contributors {
                 revert ZeroAddress();
             }
 
-            mapContributeAgents[contributeManagers[i]] = statuses[i];
+            mapContributeManagers[contributeManagers[i]] = statuses[i];
         }
 
         emit SetContributeManagerStatuses(contributeManagers, statuses);

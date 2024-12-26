@@ -162,7 +162,7 @@ describe("Staking Contribute", function () {
         await serviceRegistry.changeMultisigPermission(gnosisSafeSameAddressMultisig.address, true);
 
         // Set the manager of contributorsProxy
-        await contributors.changeManager(contributeManager.address);
+        await contributors.setContributeManagerStatuses([contributeManager.address], [true]);
 
         // Set deployer address to be the agent
         await contributors.setContributeServiceStatuses([deployer.address], [true]);
@@ -197,12 +197,12 @@ describe("Staking Contribute", function () {
 
             // Trying to change manager from a non-owner account address
             await expect(
-                contributors.connect(operator).changeManager(operator.address)
+                contributors.connect(operator).setContributeServiceStatuses([operator.address], [true])
             ).to.be.revertedWithCustomError(serviceRegistry, "OwnerOnly");
 
             // Trying to change manager for the zero address
             await expect(
-                contributors.connect(deployer).changeManager(AddressZero)
+                contributors.connect(deployer).setContributeServiceStatuses([AddressZero], [true])
             ).to.be.revertedWithCustomError(serviceRegistry, "ZeroAddress");
 
             // Try to increase the service activity not by the whitelisted service multisig
@@ -236,7 +236,7 @@ describe("Staking Contribute", function () {
             // Try to set service info not by the manager
             await expect(
                 contributors.setServiceInfoForId(deployer.address, 1, 1, deployer.address, deployer.address)
-            ).to.be.revertedWithCustomError(contributors, "ManagerOnly");
+            ).to.be.revertedWithCustomError(contributors, "UnauthorizedAccount");
 
             // Try to re-initialize the proxy
             await expect(
