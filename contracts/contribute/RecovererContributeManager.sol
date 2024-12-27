@@ -61,6 +61,12 @@ contract RecovererContributeManager {
         address _serviceRegistry,
         address _serviceRegistryTokenUtility
     ) {
+        // Check for zero addresses
+        if (_olas == address(0) || _contributeManager == address(0) || _serviceRegistry == address(0) ||
+            _serviceRegistryTokenUtility == address(0)) {
+            revert ZeroAddress();
+        }
+
         olas = _olas;
         contributeManager = _contributeManager;
         serviceRegistry = _serviceRegistry;
