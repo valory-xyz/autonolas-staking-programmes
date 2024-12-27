@@ -71,6 +71,7 @@ contract ContributeManager is ERC721TokenReceiver {
         address indexed multisig, address stakingInstance);
     event Claimed(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
         address indexed multisig, address stakingInstance);
+    event ServicePulled(address indexed sender, uint256 indexed serviceId);
 
     // Version number
     string public constant VERSION = "0.2.0";
@@ -405,52 +406,23 @@ contract ContributeManager is ERC721TokenReceiver {
         // Transfer the service back to the original owner, if requested
         if (pullService) {
             INFToken(serviceRegistry).transferFrom(address(this), contributor, serviceId);
-        }
 
-        // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
-        // If the same service is staked back, the multisig activity continues being tracked
-        IContributors(contributorsProxy).setServiceInfoForId(contributor, 0, 0, address(0), address(0));
+            // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
+            // If the same service is staked back, the multisig activity continues being tracked
+            IContributors(contributorsProxy).setServiceInfoForId(contributor, 0, 0, address(0), address(0));
+        } else {
+            // Partially remove contribute records, such that the service could be pulled later
+            IContributors(contributorsProxy).setServiceInfoForId(contributor, socialId, serviceId, address(0), address(0));
+        }
 
         emit Unstaked(socialId, contributor, serviceId, multisig, stakingInstance);
     }
 
-    /// @dev Re-stakes evicted service Id corresponding to the msg.sender.
-    function reStakeEvicted() external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Check for existing service corresponding to the social Id
-        (uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) =
-            IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
-        if (serviceId == 0) {
-            revert ServiceNotDefined(socialId);
-        }
-
-        // Check that the service is evicted
-        if (IStaking(stakingInstance).getStakingState(serviceId) != IStaking.StakingState.Evicted) {
-            revert ServiceAlreadyStaked(socialId, serviceId, multisig);
-        }
-
-        // Unstake the service
-        IStaking(stakingInstance).unstake(serviceId);
-
-        // Approve service NFT for the staking instance
-        INFToken(serviceRegistry).approve(stakingInstance, serviceId);
-
-        // Stake the service
-        IStaking(stakingInstance).stake(serviceId);
-
-        emit Restaked(socialId, msg.sender, serviceId, multisig, stakingInstance);
-
-        _locked = 1;
-    }
-
-    /// @dev Re-stakes service Id corresponding to the msg.sender from one staking instance to another.
+    /// @dev Re-stakes evicted service Id corresponding to the msg.sender or from one staking instance to another.
     /// @notice Service is unstaked, terminated, unbonded, and current service stake is returned to the contributor.
     ///         Thus, make sure to approve a new stake amount in order to be able to re-deploy the service and stake it.
+    ///         If service staking addresses match, service must be evicted to be re-staked.
+    /// @param nextStakingInstance Staking instance address to re-stake to.
     function reStake(address nextStakingInstance) external {
         // Reentrancy guard
         if (_locked > 1) {
@@ -465,20 +437,39 @@ contract ContributeManager is ERC721TokenReceiver {
             revert ServiceNotDefined(socialId);
         }
 
-        // Unstake the service, terminate, unbond, but keep in CM possession
-        _unstake(msg.sender, socialId, serviceId, multisig, curStakingInstance, false);
+        // If service staking addresses match, re-staked the service
+        if (curStakingInstance == nextStakingInstance) {
+            // Check that the service is evicted
+            if (IStaking(curStakingInstance).getStakingState(serviceId) != IStaking.StakingState.Evicted) {
+                revert ServiceAlreadyStaked(socialId, serviceId, multisig);
+            }
 
-        // Re-deploy the service
-        _reDeploy(serviceId, multisig, nextStakingInstance);
+            // Unstake the service
+            IStaking(curStakingInstance).unstake(serviceId);
 
-        // Approve service NFT for the next staking instance
-        INFToken(serviceRegistry).approve(nextStakingInstance, serviceId);
+            // Approve service NFT for the staking instance
+            INFToken(serviceRegistry).approve(curStakingInstance, serviceId);
 
-        // Stake the service
-        IStaking(nextStakingInstance).stake(serviceId);
+            // Stake the service
+            IStaking(curStakingInstance).stake(serviceId);
+        } else {
+            // Otherwise re-stake to a specified staking instance
+            // Unstake the service, terminate, unbond, but keep in CM possession
+            _unstake(msg.sender, socialId, serviceId, multisig, curStakingInstance, false);
 
-        // Change contributor staking record
-        IContributors(contributorsProxy).setServiceInfoForId(msg.sender, socialId, serviceId, multisig, nextStakingInstance);
+            // Re-deploy the service
+            _reDeploy(serviceId, multisig, nextStakingInstance);
+
+            // Approve service NFT for the next staking instance
+            INFToken(serviceRegistry).approve(nextStakingInstance, serviceId);
+
+            // Stake the service
+            IStaking(nextStakingInstance).stake(serviceId);
+
+            // Change contributor staking record
+            IContributors(contributorsProxy).setServiceInfoForId(msg.sender, socialId, serviceId, multisig,
+                nextStakingInstance);
+        }
 
         emit Restaked(socialId, msg.sender, serviceId, multisig, nextStakingInstance);
 
@@ -526,6 +517,11 @@ contract ContributeManager is ERC721TokenReceiver {
 
         // Transfer the service back to the original owner
         INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId);
+
+        // Clear contributor records completely
+        IContributors(contributorsProxy).setServiceInfoForId(msg.sender, 0, 0, address(0), address(0));
+
+        emit ServicePulled(msg.sender, serviceId);
     }
 
     receive() external payable {}
