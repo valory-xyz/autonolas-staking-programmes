@@ -321,6 +321,31 @@ describe("Staking Contribute", function () {
             await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
         });
 
+        it("Mint, stake, unstake, self-terminate and unbond", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Approve OLAS for contributeManager
+            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+
+            // Create and stake the service
+            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+
+            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
+            await helpers.time.increase(maxInactivity);
+
+            // Unstake the service
+            await contributeManager.unstake();
+
+            // Terminate the service
+            await serviceManager.terminate(serviceId);
+
+            // Unbond service
+            await expect(
+                serviceManager.unbond(serviceId)
+            ).to.be.revertedWithCustomError(serviceRegistry, "OperatorHasNoInstances");
+        });
+
         it("Mint, stake, unstake and stake again", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
