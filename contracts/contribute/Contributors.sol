@@ -218,4 +218,27 @@ contract Contributors {
 
         emit MultisigActivityChanged(msg.sender, multisigs, activityChanges);
     }
+
+    /// @dev Method to approve NFTs for a spender.
+    /// @param target Target of the approval.
+    /// @param tokenId ID of the NFT token to be approved.
+    function approveFor(address target, uint256 tokenId) {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+        // Approve service NFT for the staking instance
+        INFToken(serviceRegistry).approve(target, tokenId);
+    }
+
+    /// @dev Method to transfer NFTs out from the proxy.
+    /// @param target Target of the transfer.
+    /// @param tokenId ID of the NFT token to be transferred.
+    function transferTo(address target, uint256 tokenId) {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+        INFToken(serviceRegistry).transferFrom(address(this), target, tokenId);
+    }
 }

@@ -176,7 +176,7 @@ contract ContributeManager is ERC721TokenReceiver {
         instances[0] = msg.sender;
 
         // Create a service owned by this contract
-        serviceId = IService(serviceManager).create(address(this), token, configHash, agentIds,
+        serviceId = IService(serviceManager).create(contributorsProxy, token, configHash, agentIds,
             agentParams, uint32(THRESHOLD));
 
         // Activate registration (1 wei as a deposit wrapper)
@@ -204,8 +204,9 @@ contract ContributeManager is ERC721TokenReceiver {
         uint256 totalBond = (1 + NUM_AGENT_INSTANCES) * minStakingDeposit;
 
         // Transfer the total bond amount from the contributor
-        IToken(olas).transferFrom(msg.sender, address(this), totalBond);
+        IToken(olas).transferFrom(msg.sender, contributorsProxy, totalBond);
         // Approve token for the serviceRegistryTokenUtility contract
+        // TODO: proxy this via contributorsProxy
         IToken(olas).approve(serviceRegistryTokenUtility, totalBond);
 
         // Set agent Ids
@@ -238,7 +239,7 @@ contract ContributeManager is ERC721TokenReceiver {
         IContributors(contributorsProxy).setServiceInfoForId(msg.sender, socialId, serviceId, multisig, stakingInstance);
 
         // Approve service NFT for the staking instance
-        INFToken(serviceRegistry).approve(stakingInstance, serviceId);
+        IContributors(contributorsProxy).approveFor(stakingInstance, serviceId);
 
         // Stake the service
         IStaking(stakingInstance).stake(serviceId);
@@ -294,8 +295,9 @@ contract ContributeManager is ERC721TokenReceiver {
         uint256 totalBond = (1 + NUM_AGENT_INSTANCES) * minStakingDeposit;
 
         // Transfer the total bond amount from the contributor
-        IToken(olas).transferFrom(msg.sender, address(this), totalBond);
+        IToken(olas).transferFrom(msg.sender, contributorsProxy, totalBond);
         // Approve token for the serviceRegistryTokenUtility contract
+        // TODO proxy this via contributorsProxy
         IToken(olas).approve(serviceRegistryTokenUtility, totalBond);
 
         // Create and deploy service
@@ -339,7 +341,8 @@ contract ContributeManager is ERC721TokenReceiver {
 
         // Transfer the service NFT, if owned by contributor
         address serviceOwner = INFToken(serviceRegistry).ownerOf(serviceId);
-        if (serviceOwner != address(this)) {
+        if (serviceOwner != contributorsProxy) {
+            // TODO: wrap in contributorsProxy
             INFToken(serviceRegistry).safeTransferFrom(msg.sender, address(this), serviceId);
         }
 
@@ -405,6 +408,7 @@ contract ContributeManager is ERC721TokenReceiver {
 
         // Transfer the service back to the original owner, if requested
         if (pullService) {
+            // TODO: wrap in contributorsProxy
             INFToken(serviceRegistry).transferFrom(address(this), contributor, serviceId);
 
             // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
@@ -448,7 +452,7 @@ contract ContributeManager is ERC721TokenReceiver {
             IStaking(curStakingInstance).unstake(serviceId);
 
             // Approve service NFT for the staking instance
-            INFToken(serviceRegistry).approve(curStakingInstance, serviceId);
+            IContributors(contributorsProxy).approveFor(curStakingInstance, serviceId);
 
             // Stake the service
             IStaking(curStakingInstance).stake(serviceId);
@@ -461,7 +465,7 @@ contract ContributeManager is ERC721TokenReceiver {
             _reDeploy(serviceId, multisig, nextStakingInstance);
 
             // Approve service NFT for the next staking instance
-            INFToken(serviceRegistry).approve(nextStakingInstance, serviceId);
+            IContributors(contributorsProxy).approveFor(nextStakingInstance, serviceId);
 
             // Stake the service
             IStaking(nextStakingInstance).stake(serviceId);
@@ -501,6 +505,7 @@ contract ContributeManager is ERC721TokenReceiver {
     }
 
     /// @dev Pulls unbonded service by contributor.
+    /// @notice Allows a contributor to retrieve the contribute service NFT.
     function pullUnbondedService() external {
         // Check for existing service corresponding to the social Id
         (uint256 socialId, uint256 serviceId, , ) = IContributors(contributorsProxy).mapAccountServiceInfo(msg.sender);
@@ -516,7 +521,7 @@ contract ContributeManager is ERC721TokenReceiver {
         }
 
         // Transfer the service back to the original owner
-        INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId);
+        IContributors(contributorsProxy).transferTo(msg.sender, serviceId);
 
         // Clear contributor records completely
         IContributors(contributorsProxy).setServiceInfoForId(msg.sender, 0, 0, address(0), address(0));
