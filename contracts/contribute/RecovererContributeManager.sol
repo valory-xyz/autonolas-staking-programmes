@@ -73,9 +73,19 @@ contract RecovererContributeManager {
         serviceRegistryTokenUtility = _serviceRegistryTokenUtility;
     }
 
+    // TODO: we're lacking funding logic for this. Ideally, this itself can be a staking contract with enought slots and
+    // APY to allow the funding of the necessary OLAS to make stakers whole.
+    // The activity metric can be unmeetable by any external caller, so it will effectively only
+    // allow msg.sender who pass checks in recover to use this.
+    // No-one will "stake" here proactively, so "recover" needs to take somehow care of this, if possible.
+
     /// @notice The service must be unstaked from ContributorManager and terminated.
     function recover(uint256 serviceId) external {
         // Check if the refund was already made
+        // TODO: ensure only affected services and safes can be handled here
+        // Missing a setter for mapAccountRefunds - is this something we can dynamically retrieve from the existing contribute manager? E.g. it could be all 
+        // the services that have existing contribute manager as owner. Then this is forward compatible beyond deployment to cases where people for whatever reason
+        // use the old manager
         if (mapAccountRefunds[msg.sender]) {
             revert AlreadyRefunded(msg.sender);
         }
