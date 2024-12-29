@@ -94,4 +94,14 @@ interface IService {
     /// @return state Service state.
     function mapServices(uint256 serviceId) external view returns (uint96 securityDeposit, address multisig,
         bytes32 configHash, uint32 threshold, uint32 maxNumAgentInstances, uint32 numAgentInstances, ServiceState state);
+
+    /// @dev Gets operator address that supplied agent instance.
+    /// @param agentInstance Agent instance address.
+    /// @return Operator address.
+    function mapAgentInstanceOperators(address agentInstance) external view returns (address);
+
+    /// @dev Gets agent instance bonding / escrow balance by (operator address, serviceId) value.
+    /// @param operatorService Operator address + service Id.
+    /// @return Bonding balance.
+    function mapOperatorAndServiceIdOperatorBalances(uint256 operatorService) external view returns (uint256);
 }
