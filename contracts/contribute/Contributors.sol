@@ -12,9 +12,6 @@ error AlreadyInitialized();
 /// @dev Zero address.
 error ZeroAddress();
 
-/// @dev Only manager is allowed to have access.
-error ManagerOnly(address sender, address manager);
-
 /// @dev Wrong length of two arrays.
 /// @param numValues1 Number of values in a first array.
 /// @param numValues2 Number of values in a second array.
@@ -48,10 +45,11 @@ contract Contributors {
     event SetServiceInfoForId(address indexed serviceOwner, uint256 indexed socialId, uint256 indexed serviceId,
         address multisig, address stakingInstance);
     event SetContributeServiceStatuses(address[] contributeServices, bool[] statuses);
+    event SetContributeManagerStatuses(address[] contributeManagers, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
 
     // Version number
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.0.1";
     // Code position in storage is keccak256("CONTRIBUTORS_PROXY") = "0x8f33b4c48c4f3159dc130f2111086160da6c94439c147bd337ecee0aa81518c7"
     bytes32 public constant CONTRIBUTORS_PROXY = 0x8f33b4c48c4f3159dc130f2111086160da6c94439c147bd337ecee0aa81518c7;
 
@@ -66,6 +64,8 @@ contract Contributors {
     mapping(address => uint256) public mapMutisigActivities;
     // Mapping of whitelisted contributor agents
     mapping(address => bool) public mapContributeAgents;
+    // Mapping of whitelisted contribute managers
+    mapping(address => bool) public mapContributeManagers;
 
     /// @dev Contributors initializer.
     function initialize() external{
@@ -115,23 +115,6 @@ contract Contributors {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Changes contract manager address.
-    /// @param newManager Address of a new manager.
-    function changeManager(address newManager) external {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address
-        if (newManager == address(0)) {
-            revert ZeroAddress();
-        }
-
-        manager = newManager;
-        emit ManagerUpdated(newManager);
-    }
-
     /// @dev Sets service info for the social id.
     /// @param serviceOwner Service owner.
     /// @param socialId Social id.
@@ -145,9 +128,9 @@ contract Contributors {
         address multisig,
         address stakingInstance
     ) external {
-        // Check for manager
-        if (msg.sender != manager) {
-            revert ManagerOnly(msg.sender, manager);
+        // Check for contribute manager access
+        if (!mapContributeManagers[msg.sender]) {
+            revert UnauthorizedAccount(msg.sender);
         }
 
         // Set (or remove) multisig for the corresponding social id
@@ -185,6 +168,33 @@ contract Contributors {
         }
 
         emit SetContributeServiceStatuses(contributeServices, statuses);
+    }
+
+    /// @dev Sets contribute service multisig statues.
+    /// @param contributeManagers Contribute service multisig addresses.
+    /// @param statuses Corresponding whitelisting statues.
+    function setContributeManagerStatuses(address[] memory contributeManagers, bool[] memory statuses) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for array lengths
+        if (contributeManagers.length == 0 || contributeManagers.length != statuses.length) {
+            revert WrongArrayLength(contributeManagers.length, statuses.length);
+        }
+
+        // Traverse all contribute service multisigs and statuses
+        for (uint256 i = 0; i < contributeManagers.length; ++i) {
+            // Check for zero addresses
+            if (contributeManagers[i] == address(0)) {
+                revert ZeroAddress();
+            }
+
+            mapContributeManagers[contributeManagers[i]] = statuses[i];
+        }
+
+        emit SetContributeManagerStatuses(contributeManagers, statuses);
     }
 
     /// @dev Increases multisig activity by the contribute service.
