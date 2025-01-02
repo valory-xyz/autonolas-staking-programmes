@@ -21,11 +21,11 @@ interface IAgentMech {
 /// @dev Provided zero mech agent address.
 error ZeroMechAgentAddress();
 
-/// @title SingleMechActivityChecker - Smart contract for mech staking activity checking based on agent mech
+/// @title RequesterSingleMechActivityChecker - Smart contract for mech staking activity checking based on agent mech
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract SingleMechActivityChecker is StakingActivityChecker{
+contract RequesterSingleMechActivityChecker is StakingActivityChecker{
     // AI agent mech contract address.
     address public immutable agentMech;
 
