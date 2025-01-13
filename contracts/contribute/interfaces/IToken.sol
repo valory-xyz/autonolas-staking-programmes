@@ -25,6 +25,11 @@ interface IToken {
 
 // ERC721 token interface
 interface INFToken {
+    /// @dev Gets the owner of the token Id.
+    /// @param tokenId Token Id.
+    /// @return Token Id owner address.
+    function ownerOf(uint256 tokenId) external view returns (address);
+
     /// @dev Sets token `id` as the allowance of `spender` over the caller's tokens.
     /// @param spender Account address that will be able to transfer the token on behalf of the caller.
     /// @param id Token id.
