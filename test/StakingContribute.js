@@ -17,7 +17,6 @@ describe("Staking Contribute", function () {
     let stakingFactory;
     let contributors;
     let contributorsProxy;
-    let contributeManager;
     let contributeActivityChecker;
     let stakingTokenImplementation;
     let stakingToken;
@@ -120,22 +119,19 @@ describe("Staking Contribute", function () {
         await stakingFactory.deployed();
 
         const Contributors = await ethers.getContractFactory("Contributors");
-        contributors = await Contributors.deploy();
+        contributors = await Contributors.deploy(serviceManager.address, token.address, stakingFactory.address,
+            agentId, defaultHash);
         await contributors.deployed();
 
         const ContributorsProxy = await ethers.getContractFactory("ContributorsProxy");
-        const proxyData = contributors.interface.encodeFunctionData("initialize", []);
+        const proxyData = contributors.interface.encodeFunctionData("initialize", [gnosisSafeMultisig.address,
+            gnosisSafeSameAddressMultisig.address, fallbackHandler.address]);
         contributorsProxy = await ContributorsProxy.deploy(contributors.address, proxyData);
         await contributorsProxy.deployed();
         contributors = await ethers.getContractAt("Contributors", contributorsProxy.address);
 
-        const ContributeManager = await ethers.getContractFactory("ContributeManager");
-        contributeManager = await ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-            token.address, stakingFactory.address, gnosisSafeMultisig.address, gnosisSafeSameAddressMultisig.address,
-            fallbackHandler.address, agentId, defaultHash);
-
         const ContributeActivityChecker = await ethers.getContractFactory("ContributeActivityChecker");
-        contributeActivityChecker = await ContributeActivityChecker.deploy(contributorsProxy.address, livenessRatio);
+        contributeActivityChecker = await ContributeActivityChecker.deploy(contributors.address, livenessRatio);
         await contributeActivityChecker.deployed();
         serviceParams.activityChecker = contributeActivityChecker.address;
 
@@ -160,9 +156,6 @@ describe("Staking Contribute", function () {
         // Whitelist gnosis multisig implementations
         await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
         await serviceRegistry.changeMultisigPermission(gnosisSafeSameAddressMultisig.address, true);
-
-        // Set the manager of contributorsProxy
-        await contributors.setContributeManagerStatuses([contributeManager.address], [true]);
 
         // Set deployer address to be the agent
         await contributors.setContributeServiceStatuses([deployer.address], [true]);
@@ -233,14 +226,9 @@ describe("Staking Contribute", function () {
                 contributors.setContributeServiceStatuses([AddressZero], [true])
             ).to.be.revertedWithCustomError(contributors, "ZeroAddress");
 
-            // Try to set service info not by the manager
-            await expect(
-                contributors.setServiceInfoForId(deployer.address, 1, 1, deployer.address, deployer.address)
-            ).to.be.revertedWithCustomError(contributors, "UnauthorizedAccount");
-
             // Try to re-initialize the proxy
             await expect(
-                contributors.initialize()
+                contributors.initialize(deployer.address, deployer.address, deployer.address)
             ).to.be.revertedWithCustomError(contributors, "AlreadyInitialized");
 
             // Try to change implementation not by the owner
@@ -266,81 +254,65 @@ describe("Staking Contribute", function () {
         });
 
         it("Failing to initialize with wrong parameters", async function () {
-            const ContributeManager = await ethers.getContractFactory("ContributeManager");
+            const Contributors = await ethers.getContractFactory("Contributors");
             await expect(
-                ContributeManager.deploy(AddressZero, serviceManager.address,
-                    token.address, stakingFactory.address, gnosisSafeMultisig.address,
-                    gnosisSafeSameAddressMultisig.address, fallbackHandler.address, agentId, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroAddress");
+                Contributors.deploy(AddressZero, token.address, stakingFactory.address, agentId, defaultHash)
+            ).to.be.revertedWithCustomError(contributors, "ZeroAddress");
             await expect(
-                ContributeManager.deploy(contributorsProxy.address, AddressZero,
-                    token.address, stakingFactory.address, gnosisSafeMultisig.address,
-                    gnosisSafeSameAddressMultisig.address, fallbackHandler.address, agentId, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroAddress");
+                Contributors.deploy(serviceManager.address, AddressZero, stakingFactory.address, agentId, defaultHash)
+            ).to.be.revertedWithCustomError(contributors, "ZeroAddress");
             await expect(
-                ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-                    AddressZero, stakingFactory.address, gnosisSafeMultisig.address,
-                    gnosisSafeSameAddressMultisig.address, fallbackHandler.address, agentId, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroAddress");
+                Contributors.deploy(serviceManager.address, token.address, AddressZero, agentId, defaultHash)
+            ).to.be.revertedWithCustomError(contributors, "ZeroAddress");
             await expect(
-                ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-                    token.address, AddressZero, gnosisSafeMultisig.address,
-                    gnosisSafeSameAddressMultisig.address, fallbackHandler.address, agentId, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroAddress");
+                Contributors.deploy(serviceManager.address, token.address, stakingFactory.address, 0, defaultHash)
+            ).to.be.revertedWithCustomError(contributors, "ZeroValue");
             await expect(
-                ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-                    token.address, stakingFactory.address, AddressZero,
-                    gnosisSafeSameAddressMultisig.address, fallbackHandler.address, agentId, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroAddress");
+                Contributors.deploy(serviceManager.address, token.address, stakingFactory.address, agentId, HashZero)
+            ).to.be.revertedWithCustomError(contributors, "ZeroValue");
+
+            const contributorsTest = await Contributors.deploy(serviceManager.address, token.address,
+                stakingFactory.address, agentId, defaultHash);
+            await contributorsTest.deployed();
+
             await expect(
-                ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-                    token.address, stakingFactory.address, gnosisSafeMultisig.address,
-                    AddressZero, fallbackHandler.address, agentId, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroAddress");
+                contributorsTest.initialize(AddressZero, gnosisSafeSameAddressMultisig.address, fallbackHandler.address)
+            ).to.be.revertedWithCustomError(contributors, "ZeroAddress");
             await expect(
-                ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-                    token.address, stakingFactory.address, gnosisSafeMultisig.address,
-                    gnosisSafeSameAddressMultisig.address, AddressZero, agentId, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroAddress");
+                contributorsTest.initialize(gnosisSafeMultisig.address, AddressZero, fallbackHandler.address)
+            ).to.be.revertedWithCustomError(contributors, "ZeroAddress");
             await expect(
-                ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-                    token.address, stakingFactory.address, gnosisSafeMultisig.address,
-                    gnosisSafeSameAddressMultisig.address, fallbackHandler.address, 0, defaultHash)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroValue");
-            await expect(
-                ContributeManager.deploy(contributorsProxy.address, serviceManager.address,
-                    token.address, stakingFactory.address, gnosisSafeMultisig.address,
-                    gnosisSafeSameAddressMultisig.address, fallbackHandler.address, agentId, HashZero)
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroValue");
+                contributorsTest.initialize(gnosisSafeMultisig.address, gnosisSafeSameAddressMultisig.address, AddressZero)
+            ).to.be.revertedWithCustomError(contributors, "ZeroAddress");
 
             const ContributeActivityChecker = await ethers.getContractFactory("ContributeActivityChecker");
             await expect(
                 ContributeActivityChecker.deploy(AddressZero, livenessRatio)
             ).to.be.revertedWithCustomError(ContributeActivityChecker, "ZeroAddress");
             await expect(
-                ContributeActivityChecker.deploy(contributorsProxy.address, 0)
+                ContributeActivityChecker.deploy(contributorsTest.address, 0)
             ).to.be.revertedWithCustomError(ContributeActivityChecker, "ZeroValue");
         });
     });
 
     context("Contribute manager", function () {
         it("Create and stake", async function () {
-            // Approve OLAS for contributeManager
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Create and stake the service
-            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
         });
 
         it("Mint, stake, unstake", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Approve OLAS for contributeManager
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Create and stake the service
-            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
 
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
@@ -348,7 +320,7 @@ describe("Staking Contribute", function () {
             const balanceBefore = await token.balanceOf(deployer.address);
 
             // Unstake the service with transferring the service beck to the contributor
-            await contributeManager.unstake(true);
+            await contributors.unstake(true);
 
             const balanceAfter = await token.balanceOf(deployer.address);
 
@@ -364,26 +336,26 @@ describe("Staking Contribute", function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Approve OLAS for contributeManager
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Create and stake the service
-            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
 
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
             // Unstake the service with transferring the service beck to the contributor
-            await contributeManager.unstake(true);
+            await contributors.unstake(true);
 
-            // Approve the service for the contributeManager
-            await serviceRegistry.approve(contributeManager.address, serviceId);
+            // Approve the service for the contributors
+            await serviceRegistry.approve(contributors.address, serviceId);
 
-            // Approve OLAS for contributeManager again as OLAS was returned during the unstake and unbond
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Stake the service again
-            await contributeManager.stake(socialId, serviceId, stakingToken.address);
+            await contributors.stake(socialId, serviceId, stakingToken.address);
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -393,11 +365,11 @@ describe("Staking Contribute", function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Approve OLAS for contributeManager
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Create and stake the service
-            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
 
             // Get the user data
             const serviceInfo = await contributors.mapAccountServiceInfo(deployer.address);
@@ -414,7 +386,7 @@ describe("Staking Contribute", function () {
             const balanceBefore = ethers.BigNumber.from(await token.balanceOf(serviceInfo.multisig));
 
             // Claim rewards
-            await contributeManager.claim();
+            await contributors.claim();
 
             const balanceAfter = ethers.BigNumber.from(await token.balanceOf(serviceInfo.multisig));
             // The balance before and after the claim must be different
@@ -428,49 +400,49 @@ describe("Staking Contribute", function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Approve OLAS for contributeManager
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Try to create a new service with zero social Id
             await expect(
-                contributeManager.createAndStake(0, stakingToken.address, {value: 2})
-            ).to.be.revertedWithCustomError(contributeManager, "ZeroValue");
+                contributors.createAndStake(0, stakingToken.address, {value: 2})
+            ).to.be.revertedWithCustomError(contributors, "ZeroValue");
 
             // Try to create and stake a new service with wrong staking instance
             await expect(
-                contributeManager.createAndStake(socialId, deployer.address, {value: 2})
-            ).to.be.revertedWithCustomError(contributeManager, "WrongStakingInstance");
+                contributors.createAndStake(socialId, deployer.address, {value: 2})
+            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
 
             // Create and stake the service
-            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
             
             // Try to create the service again
             await expect(
-                contributeManager.createAndStake(socialId, stakingToken.address, {value: 2})
-            ).to.be.revertedWithCustomError(contributeManager, "ServiceAlreadyStaked");
+                contributors.createAndStake(socialId, stakingToken.address, {value: 2})
+            ).to.be.revertedWithCustomError(contributors, "ServiceAlreadyStaked");
 
             // Try to stake the service again
             await expect(
-                contributeManager.stake(socialId, serviceId, stakingToken.address)
-            ).to.be.revertedWithCustomError(contributeManager, "ServiceAlreadyStaked");
+                contributors.stake(socialId, serviceId, stakingToken.address)
+            ).to.be.revertedWithCustomError(contributors, "ServiceAlreadyStaked");
 
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
             // Unstake the service with transferring the service beck to the contributor
-            await contributeManager.unstake(true);
+            await contributors.unstake(true);
 
             // Try to unstake again
             await expect(
-                contributeManager.unstake(true)
-            ).to.be.revertedWithCustomError(contributeManager, "ServiceNotDefined");
+                contributors.unstake(true)
+            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
 
             // Try to claim the unstaked service
             await expect(
-                contributeManager.claim()
-            ).to.be.revertedWithCustomError(contributeManager, "ServiceNotDefined");
+                contributors.claim()
+            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
 
-            // Approve more OLAS for contributeManager
+            // Approve more OLAS for contributors
             await token.approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit * 3);
             await token.connect(operator).approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit * 3);
 
@@ -481,12 +453,12 @@ describe("Staking Contribute", function () {
             await serviceManager.deploy(serviceId + 1, gnosisSafeMultisig.address, payload);
 
             // Approve service for the contribute manager
-            await serviceRegistry.approve(contributeManager.address, serviceId + 1);
+            await serviceRegistry.approve(contributors.address, serviceId + 1);
 
             // Try to stake with wrong parameters
             await expect(
-                contributeManager.stake(socialId, serviceId + 1, stakingToken.address)
-            ).to.be.revertedWithCustomError(contributeManager, "WrongServiceSetup");
+                contributors.stake(socialId, serviceId + 1, stakingToken.address)
+            ).to.be.revertedWithCustomError(contributors, "WrongServiceSetup");
 
             // Create another wrong service setup
             await serviceManager.create(deployer.address, token.address, defaultHash, agentIds, [[2, regBond]], 2);
@@ -496,29 +468,29 @@ describe("Staking Contribute", function () {
             await serviceManager.deploy(serviceId + 2, gnosisSafeMultisig.address, payload);
 
             // Approve service for the contribute manager
-            await serviceRegistry.approve(contributeManager.address, serviceId + 2);
+            await serviceRegistry.approve(contributors.address, serviceId + 2);
 
             // Try to stake with wrong parameters
             await expect(
-                contributeManager.stake(socialId, serviceId + 2, stakingToken.address)
-            ).to.be.revertedWithCustomError(contributeManager, "WrongServiceSetup");
+                contributors.stake(socialId, serviceId + 2, stakingToken.address)
+            ).to.be.revertedWithCustomError(contributors, "WrongServiceSetup");
 
-            // Approve the service for the contributeManager
-            await serviceRegistry.approve(contributeManager.address, serviceId);
+            // Approve the service for the contributors
+            await serviceRegistry.approve(contributors.address, serviceId);
 
-            // Approve OLAS for contributeManager again as OLAS was returned during the unstake and unbond
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Stake the service again
-            await contributeManager.stake(socialId, serviceId, stakingToken.address);
+            await contributors.stake(socialId, serviceId, stakingToken.address);
 
             // Restore a previous state of blockchain
             snapshot.restore();
         });
 
         it("Should fail when staking with a wrong instance", async function () {
-            // Approve OLAS for contributeManager
-            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Deploy a staking contract with max number of services equal to one
             const testServiceParams = JSON.parse(JSON.stringify(serviceParams));
@@ -538,8 +510,8 @@ describe("Staking Contribute", function () {
 
             // Try to create and stake a new service with wrong num agent instances
             await expect(
-                contributeManager.createAndStake(socialId, stakingTokenAddress, {value: 2})
-            ).to.be.revertedWithCustomError(contributeManager, "WrongStakingInstance");
+                contributors.createAndStake(socialId, stakingTokenAddress, {value: 2})
+            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
 
             // Reset number of agent isntances and update threshold
             testServiceParams.numAgentInstances = 1;
@@ -559,8 +531,8 @@ describe("Staking Contribute", function () {
 
             // Try to create and stake a new service with wrong threshold
             await expect(
-                contributeManager.createAndStake(socialId, stakingTokenAddress, {value: 2})
-            ).to.be.revertedWithCustomError(contributeManager, "WrongStakingInstance");
+                contributors.createAndStake(socialId, stakingTokenAddress, {value: 2})
+            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
 
             // Reset threshold
             testServiceParams.threshold = 1;
@@ -580,8 +552,8 @@ describe("Staking Contribute", function () {
 
             // Try to create and stake a new service with wrong token
             await expect(
-                contributeManager.createAndStake(socialId, stakingTokenAddress, {value: 2})
-            ).to.be.revertedWithCustomError(contributeManager, "WrongStakingInstance");
+                contributors.createAndStake(socialId, stakingTokenAddress, {value: 2})
+            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
         });
     });
 });

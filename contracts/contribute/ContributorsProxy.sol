@@ -55,7 +55,7 @@ contract ContributorsProxy {
     }
 
     /// @dev Delegatecall to all the incoming data.
-    fallback() external {
+    fallback() external payable {
         assembly {
             let implementation := sload(CONTRIBUTORS_PROXY)
             calldatacopy(0, 0, calldatasize())
