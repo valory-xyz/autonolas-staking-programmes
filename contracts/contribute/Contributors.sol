@@ -93,8 +93,6 @@ contract Contributors is ERC721TokenReceiver {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event ManagerUpdated(address indexed manager);
-    event SetServiceInfoForId(address indexed serviceOwner, uint256 indexed socialId, uint256 indexed serviceId,
-        address multisig, address stakingInstance);
     event SetContributeServiceStatuses(address[] contributeServices, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
     event CreatedAndStaked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
@@ -384,8 +382,6 @@ contract Contributors is ERC721TokenReceiver {
 
         // Stake the service
         IStaking(stakingInstance).stake(serviceId);
-
-        emit SetServiceInfoForId(msg.sender, socialId, serviceId, multisig, stakingInstance);
     }
 
     /// @dev Creates and deploys a service for the contributor, and stakes it with a specified staking contract.
