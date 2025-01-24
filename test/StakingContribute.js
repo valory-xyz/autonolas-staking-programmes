@@ -175,7 +175,7 @@ describe("Staking Contribute", function () {
         proxyData = contributorsDeprecated.interface.encodeFunctionData("initialize", []);
         const contributorsProxy2 = await ContributorsProxy.deploy(contributorsDeprecated.address, proxyData);
         await contributorsDeprecated.deployed();
-        contributors2 = await ethers.getContractAt("ContributorsDeprecated", contributorsProxy2.address);
+        contributorsDeprecated = await ethers.getContractAt("ContributorsDeprecated", contributorsProxy2.address);
 
         const ContributeManager = await ethers.getContractFactory("ContributeManager");
         contributeManager = await ContributeManager.deploy(contributorsProxy2.address, serviceManager.address,
@@ -184,7 +184,7 @@ describe("Staking Contribute", function () {
         await contributeManager.deployed();
 
         // Set the manager of contributorsProxy
-        await contributors2.changeManager(contributeManager.address);
+        await contributorsDeprecated.changeManager(contributeManager.address);
 
         const Recoverer = await ethers.getContractFactory("RecovererContributeManager");
         // Drainer address is not important for testing
