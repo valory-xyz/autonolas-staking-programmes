@@ -168,6 +168,8 @@ contract RecovererContributeManager {
         emit Refunded(msg.sender, refund);
     }
 
+    /// @dev Drains funds.
+    /// @notice This function must be called some time after all the refunds have been processed.
     function drain() external {
         // Check for the ownership
         if (msg.sender != owner) {

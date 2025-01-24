@@ -18,6 +18,8 @@ describe("Staking Contribute", function () {
     let contributors;
     let contributorsProxy;
     let contributeActivityChecker;
+    let contributeManager;
+    let recoverer;
     let stakingTokenImplementation;
     let stakingToken;
     let signers;
@@ -38,6 +40,7 @@ describe("Staking Contribute", function () {
     const threshold = 1;
     const livenessPeriod = 10; // Ten seconds
     const initSupply = "5" + "0".repeat(26);
+    const refundFactor = ethers.utils.parseEther("1");
     const payload = "0x";
     const livenessRatio = "1" + "0".repeat(16); // 0.01 transaction per second (TPS)
     let serviceParams = {
@@ -124,7 +127,7 @@ describe("Staking Contribute", function () {
         await contributors.deployed();
 
         const ContributorsProxy = await ethers.getContractFactory("ContributorsProxy");
-        const proxyData = contributors.interface.encodeFunctionData("initialize", [gnosisSafeMultisig.address,
+        let proxyData = contributors.interface.encodeFunctionData("initialize", [gnosisSafeMultisig.address,
             gnosisSafeSameAddressMultisig.address, fallbackHandler.address]);
         contributorsProxy = await ContributorsProxy.deploy(contributors.address, proxyData);
         await contributorsProxy.deployed();
@@ -163,6 +166,34 @@ describe("Staking Contribute", function () {
         // Fund the staking contract
         await token.approve(stakingTokenAddress, ethers.utils.parseEther("1"));
         await stakingToken.deposit(ethers.utils.parseEther("1"));
+
+        // Recovery set of contracts
+        const ContributorsDeprecated = await ethers.getContractFactory("ContributorsDeprecated");
+        let contributorsDeprecated = await ContributorsDeprecated.deploy();
+        await contributorsDeprecated.deployed();
+
+        proxyData = contributorsDeprecated.interface.encodeFunctionData("initialize", []);
+        const contributorsProxy2 = await ContributorsProxy.deploy(contributorsDeprecated.address, proxyData);
+        await contributorsDeprecated.deployed();
+        contributors2 = await ethers.getContractAt("ContributorsDeprecated", contributorsProxy2.address);
+
+        const ContributeManager = await ethers.getContractFactory("ContributeManager");
+        contributeManager = await ContributeManager.deploy(contributorsProxy2.address, serviceManager.address,
+            token.address, stakingFactory.address, gnosisSafeMultisig.address, fallbackHandler.address,
+            agentId, defaultHash);
+        await contributeManager.deployed();
+
+        // Set the manager of contributorsProxy
+        await contributors2.changeManager(contributeManager.address);
+
+        const Recoverer = await ethers.getContractFactory("RecovererContributeManager");
+        // Drainer address is not important for testing
+        recoverer = await Recoverer.deploy(token.address, contributeManager.address, serviceRegistry.address,
+            serviceRegistryTokenUtility.address, deployer.address, refundFactor);
+        await recoverer.deployed();
+
+        // Fund recoverer contract
+        await token.mint(recoverer.address, initSupply);
     });
 
     context("Initialization", function () {
@@ -295,7 +326,7 @@ describe("Staking Contribute", function () {
         });
     });
 
-    context("Contribute manager", function () {
+    context("Contribute staking management", function () {
         it("Create and stake", async function () {
             // Approve OLAS for contributors
             await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
@@ -554,6 +585,66 @@ describe("Staking Contribute", function () {
             await expect(
                 contributors.createAndStake(socialId, stakingTokenAddress, {value: 2})
             ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
+        });
+    });
+
+    context("Contribute manager recovery", function () {
+        it("Create and stake", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Approve OLAS for contributeManager
+            await token.approve(contributeManager.address, serviceParams.minStakingDeposit * 2);
+
+            // Create and stake the service
+            await contributeManager.createAndStake(socialId, stakingToken.address, {value: 2});
+
+            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
+            await helpers.time.increase(maxInactivity);
+
+            // Unstake the service
+            await contributeManager.unstake();
+
+            // START RECOVERY PROCEDURE
+            // Slash service
+            const service = await serviceRegistry.getService(serviceId);
+            const multisigAddress = service.multisig;
+            const multisig = await ethers.getContractAt("GnosisSafe", multisigAddress);
+            const safeContracts = require("@gnosis.pm/safe-contracts");
+            const nonce = await multisig.nonce();
+            const txHashData = await safeContracts.buildContractCall(serviceRegistryTokenUtility, "slash",
+                [[deployer.address], [serviceParams.minStakingDeposit], serviceId], nonce, 0, 0);
+            const signMessageData = await safeContracts.safeSignMessage(deployer, multisig, txHashData, 0);
+
+            // Slash the agent instance operator with the correct multisig
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Check slashed balance
+            const slashedBalance = await serviceRegistryTokenUtility.mapSlashedFunds(token.address);
+            expect(slashedBalance).to.equal(serviceParams.minStakingDeposit);
+
+            // Terminate the service
+            await serviceManager.terminate(serviceId);
+
+            // Trying to unbond service fails
+            await expect(
+                serviceManager.unbond(serviceId)
+            ).to.be.revertedWithCustomError(serviceRegistry, "OperatorHasNoInstances");
+
+            // Get refund
+            await recoverer.recover(serviceId);
+
+            // Drain the remainder of recoverer funds
+            await recoverer.drain();
+
+            // Change drainer
+            await serviceRegistryTokenUtility.changeDrainer(deployer.address);
+
+            // Drain ServiceRegistryTokenUtility
+            await serviceRegistryTokenUtility.drain(token.address);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
         });
     });
 });
