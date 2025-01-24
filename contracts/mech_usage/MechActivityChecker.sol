@@ -13,9 +13,9 @@ interface IMultisig {
 // Mech Marketplace interface
 interface IMechMarketplace {
     /// @dev Gets deliveries count for a specific mech service multisig.
-    /// @param mechService Agent mech service multisig address.
+    /// @param mechServiceMutisig Mech service multisig address.
     /// @return Deliveries count.
-    function getMechServiceDeliveriesCount(address mechService) external view returns (uint256);
+    function mapMechServiceDeliveryCounts(address mechServiceMutisig) external view returns (uint256);
 }
 
 /// @dev Provided zero address.
@@ -45,7 +45,7 @@ contract MechActivityChecker is StakingActivityChecker{
     function getMultisigNonces(address multisig) external view virtual override returns (uint256[] memory nonces) {
         nonces = new uint256[](2);
         nonces[0] = IMultisig(multisig).nonce();
-        nonces[1] = IMechMarketplace(mechMarketplace).getMechServiceDeliveriesCount(multisig);
+        nonces[1] = IMechMarketplace(mechMarketplace).mapMechServiceDeliveryCounts(multisig);
     }
 
     /// @dev Checks if the service multisig liveness ratio passes the defined liveness threshold.

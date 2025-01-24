@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {StakingActivityChecker} from "../../lib/autonolas-registries/contracts/staking/StakingActivityChecker.sol";
+import {StakingActivityChecker} from "../../../lib/autonolas-registries/contracts/staking/StakingActivityChecker.sol";
 
 // Multisig interface
 interface IMultisig {

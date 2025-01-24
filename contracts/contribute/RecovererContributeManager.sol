@@ -23,6 +23,9 @@ error AlreadyRefunded(address account);
 /// @dev Zero address.
 error ZeroAddress();
 
+/// @dev Zero value.
+error ZeroValue();
+
 /// @dev Account is unauthorized.
 /// @param account Account address.
 error UnauthorizedAccount(address account);
@@ -38,11 +41,15 @@ error ServiceNotSlashed(uint256 serviceId);
 
 /// @title RecovererContributeManager - Smart contract for recovery contribute manager funds
 contract RecovererContributeManager {
+    event OwnerUpdated(address indexed owner);
     event Refunded(address indexed account, uint256 amount);
+    event Drained(address indexed drainer, uint256 amount);
 
     // Version number
     string public constant VERSION = "0.1.0";
 
+    // Refund factor in 1e18 format
+    uint256 public immutable refundFactor;
     // OLAS token address
     address public immutable olas;
     // Contribute manager contract address
@@ -51,6 +58,11 @@ contract RecovererContributeManager {
     address public immutable serviceRegistry;
     // Service registry token utility
     address public immutable serviceRegistryTokenUtility;
+    // Drainer address
+    address public immutable drainer;
+
+    // Owner address
+    address public owner;
 
     // Map of account address => refund processed
     mapping(address => bool) public mapAccountRefunds;
@@ -59,18 +71,45 @@ contract RecovererContributeManager {
         address _olas,
         address _contributeManager,
         address _serviceRegistry,
-        address _serviceRegistryTokenUtility
+        address _serviceRegistryTokenUtility,
+        address _drainer,
+        uint256 _refundFactor
     ) {
         // Check for zero addresses
         if (_olas == address(0) || _contributeManager == address(0) || _serviceRegistry == address(0) ||
-            _serviceRegistryTokenUtility == address(0)) {
+            _serviceRegistryTokenUtility == address(0) || _drainer == address(0)) {
             revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_refundFactor == 0) {
+            revert ZeroValue();
         }
 
         olas = _olas;
         contributeManager = _contributeManager;
         serviceRegistry = _serviceRegistry;
         serviceRegistryTokenUtility = _serviceRegistryTokenUtility;
+        drainer = _drainer;
+
+        owner = msg.sender;
+    }
+
+    /// @dev Changes contract owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
     }
 
     /// @notice The service must be unstaked from ContributorManager and terminated.
@@ -123,8 +162,29 @@ contract RecovererContributeManager {
         mapAccountRefunds[msg.sender] = true;
 
         // Refund
-        IToken(olas).transfer(msg.sender, securityDeposit);
+        uint256 refund = securityDeposit * refundFactor / 1e18;
+        IToken(olas).transfer(msg.sender, refund);
 
-        emit Refunded(msg.sender, securityDeposit);
+        emit Refunded(msg.sender, refund);
+    }
+
+    function drain() external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get balance
+        uint256 balance = IToken(olas).balanceOf(address(this));
+
+        // Check for zero value
+        if (balance == 0) {
+            revert ZeroValue();
+        }
+
+        // Transfer funds
+        IToken(olas).transfer(drainer, balance);
+
+        emit Drained(drainer, balance);
     }
 }
