@@ -530,19 +530,19 @@ contract Contributors is ERC721TokenReceiver {
         IStaking(stakingInstance).unstake(serviceId);
 
         // Terminate service
-        (, uint256 terminateRefund) = IService(serviceManager).terminate(serviceId);
+        (, uint256 refund) = IService(serviceManager).terminate(serviceId);
 
-        // Unbond service
-        (, uint256 unbondRefund) = IService(serviceManager).unbond(serviceId);
-
-        // Calculate refund
-        uint256 refund = terminateRefund + unbondRefund;
+        // Unbond service, if operator is address(this)
+        if (IService(serviceRegistry).mapAgentInstanceOperators(contributor) == address(this)) {
+            (, uint256 unbondAmount) = IService(serviceManager).unbond(serviceId);
+            refund += unbondAmount;
+        }
 
         // Transfer back OLAS tokens
         IToken(olas).transfer(contributor, refund);
 
         // Transfer back cover deposit
-        msg.sender.call{value: 1 + NUM_AGENT_INSTANCES}("");
+        contributor.call{value: 1 + NUM_AGENT_INSTANCES}("");
 
         // Transfer the service back to the original owner, if requested
         if (pullService) {
@@ -649,10 +649,9 @@ contract Contributors is ERC721TokenReceiver {
             revert ServiceNotDefined(serviceInfo.socialId);
         }
 
-        // Check that the service is in pre-registration state
-        (, , , , , , IService.ServiceState state) = IService(serviceRegistry).mapServices(serviceInfo.serviceId);
-        if (state != IService.ServiceState.PreRegistration) {
-            revert WrongServiceState(serviceInfo.socialId, serviceInfo.serviceId, state);
+        // Check that the multisig record is cleared
+        if (serviceInfo.multisig != address(0)) {
+            revert WrongServiceSetup(serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig);
         }
 
         // Transfer the service back to the original owner

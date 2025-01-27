@@ -407,10 +407,13 @@ describe("Staking Contribute", function () {
             // Create and stake the service
             await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
 
+            // Get multisig address
+            const multisigAddress = (await contributors.mapAccountServiceInfo(deployer.address)).multisig;
+
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
-            // Unstake the service with transferring the service back to the contributor
+            // Unstake the service without transferring the service back to the contributor
             await contributors.unstake(false);
 
             // Try to re-stake without approved funds
@@ -427,7 +430,7 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
-            // Unstake the service with transferring the service back to the contributor
+            // Unstake the service without transferring the service back to the contributor
             await contributors.unstake(false);
 
             // Pull the service
@@ -449,6 +452,42 @@ describe("Staking Contribute", function () {
             await expect(
                 contributors.stake(socialId, serviceId, stakingToken.address, {value: 2})
             ).to.be.revertedWithCustomError(contributors, "WrongServiceState");
+
+            // Register agent instance
+            await token.transfer(signers[1].address, serviceParams.minStakingDeposit);
+            await token.connect(signers[1]).approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
+            await serviceManager.connect(signers[1]).registerAgents(serviceId, [deployer.address], agentIds, {value: 1});
+
+            // Pack the original multisig address
+            const data = ethers.utils.solidityPack(["address"], [multisigAddress]);
+
+            // Deploy service
+            await serviceManager.deploy(serviceId, gnosisSafeSameAddressMultisig.address, data);
+
+            // Stake deployed service again
+            await contributors.stake(socialId, serviceId, stakingToken.address);
+
+            // Try to pull service while it's staked
+            await expect(
+                contributors.pullUnbondedService()
+            ).to.be.revertedWithCustomError(contributors, "WrongServiceSetup");
+
+            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
+            await helpers.time.increase(maxInactivity);
+
+            // Unstake the service with transferring the service back to the contributor
+            await contributors.unstake(true);
+
+            // Since operator of the service is not contributors contract, unbond it manually
+            await serviceManager.connect(signers[1]).unbond(serviceId);
+
+            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+            // Approve the service for the contributors
+            await serviceRegistry.approve(contributors.address, serviceId);
+
+            // Stake the service again
+            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
 
             // Restore a previous state of blockchain
             snapshot.restore();
