@@ -391,7 +391,7 @@ describe("Staking Contribute", function () {
             await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Stake the service again
-            await contributors.stake(socialId, serviceId, stakingToken.address);
+            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -437,6 +437,18 @@ describe("Staking Contribute", function () {
             await expect(
                 contributors.pullUnbondedService()
             ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
+
+            // Activate registration
+            await token.approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
+            await serviceManager.activateRegistration(serviceId, {value: 1});
+
+            // Approve the service for the contributors
+            await serviceRegistry.approve(contributors.address, serviceId);
+
+            // Try to stake service in a wrong state
+            await expect(
+                contributors.stake(socialId, serviceId, stakingToken.address, {value: 2})
+            ).to.be.revertedWithCustomError(contributors, "WrongServiceState");
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -563,7 +575,7 @@ describe("Staking Contribute", function () {
             await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
 
             // Stake the service again
-            await contributors.stake(socialId, serviceId, stakingToken.address);
+            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
 
             // Restore a previous state of blockchain
             snapshot.restore();
