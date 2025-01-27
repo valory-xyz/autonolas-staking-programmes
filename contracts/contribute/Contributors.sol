@@ -511,15 +511,13 @@ contract Contributors is ERC721TokenReceiver {
             revert ServiceNotDefined(serviceInfo.socialId);
         }
 
-        _unstake(msg.sender, serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig,
-            serviceInfo.stakingInstance, pullService);
+        _unstake(serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig, serviceInfo.stakingInstance, pullService);
 
         _locked = 1;
     }
 
     /// @dev Unstakes service Id corresponding to the msg.sender and clears the contributor record.
     function _unstake(
-        address contributor,
         uint256 socialId,
         uint256 serviceId,
         address multisig,
@@ -531,33 +529,35 @@ contract Contributors is ERC721TokenReceiver {
 
         // Terminate service
         (, uint256 refund) = IService(serviceManager).terminate(serviceId);
+        uint256 refundNative = 1;
 
         // Unbond service, if operator is address(this)
-        if (IService(serviceRegistry).mapAgentInstanceOperators(contributor) == address(this)) {
+        if (IService(serviceRegistry).mapAgentInstanceOperators(msg.sender) == address(this)) {
             (, uint256 unbondAmount) = IService(serviceManager).unbond(serviceId);
             refund += unbondAmount;
+            refundNative += NUM_AGENT_INSTANCES;
         }
 
         // Transfer back OLAS tokens
-        IToken(olas).transfer(contributor, refund);
+        IToken(olas).transfer(msg.sender, refund);
 
         // Transfer back cover deposit
-        contributor.call{value: 1 + NUM_AGENT_INSTANCES}("");
+        msg.sender.call{value: refundNative}("");
 
         // Transfer the service back to the original owner, if requested
         if (pullService) {
-            INFToken(serviceRegistry).transferFrom(address(this), contributor, serviceId);
+            INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId);
 
             // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
             // If the same service is staked back, the multisig activity continues being tracked
-            delete mapAccountServiceInfo[contributor];
+            delete mapAccountServiceInfo[msg.sender];
         } else {
             // Partially remove contribute records, such that the service could be pulled later
-            mapAccountServiceInfo[contributor].multisig = address(0);
-            mapAccountServiceInfo[contributor].stakingInstance = address(0);
+            mapAccountServiceInfo[msg.sender].multisig = address(0);
+            mapAccountServiceInfo[msg.sender].stakingInstance = address(0);
         }
 
-        emit Unstaked(socialId, contributor, serviceId, multisig, stakingInstance);
+        emit Unstaked(socialId, msg.sender, serviceId, multisig, stakingInstance);
     }
 
     /// @dev Re-stakes evicted service Id corresponding to the msg.sender or from one staking instance to another.
@@ -596,8 +596,7 @@ contract Contributors is ERC721TokenReceiver {
         } else {
             // Otherwise re-stake to a specified staking instance
             // Unstake the service, terminate, unbond, but keep in CM possession
-            _unstake(msg.sender, serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig,
-                serviceInfo.stakingInstance, false);
+            _unstake(serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig, serviceInfo.stakingInstance, false);
 
             // Re-deploy the service
             _reDeploy(serviceInfo.serviceId, serviceInfo.multisig, nextStakingInstance);

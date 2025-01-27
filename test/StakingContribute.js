@@ -527,6 +527,62 @@ describe("Staking Contribute", function () {
             // Restore a previous state of blockchain
             snapshot.restore();
         });
+
+        it("Mint, stake, re-stake due to inactivity", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+
+            // Create and stake the service
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
+
+            // Try to re-stake correctly staked service
+            await expect(
+                contributors.reStake(stakingToken.address)
+            ).to.be.revertedWithCustomError(contributors, "ServiceAlreadyStaked");
+
+            // Increase the time until the next staking epoch
+            await helpers.time.increase(maxInactivity);
+
+            // Call the checkpoint
+            await stakingToken.checkpoint();
+
+            // The service is currently evicted, re-stake (unstake and stake again)
+            await contributors.reStake(stakingToken.address);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Mint, stake, re-stake to another staking contract", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Try to re-stake without initial staking
+            await expect(
+                contributors.reStake(stakingToken.address)
+            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
+
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+
+            // Create and stake the service
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
+
+            // Increase the time until the next staking epoch
+            await helpers.time.increase(maxInactivity);
+
+            // Call the checkpoint
+            await stakingToken.checkpoint();
+
+            // The service is currently evicted, re-stake (unstake and stake again)
+            await contributors.reStake(stakingToken.address);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
         
         it("Should fail when executing with incorrect values and states", async function () {
             // Take a snapshot of the current state of the blockchain
