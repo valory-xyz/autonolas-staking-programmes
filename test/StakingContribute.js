@@ -376,8 +376,13 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
-            // Unstake the service with transferring the service beck to the contributor
+            // Unstake the service with transferring the service back to the contributor
             await contributors.unstake(true);
+
+            // Try to pull already pulled service
+            await expect(
+                contributors.pullUnbondedService()
+            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
 
             // Approve the service for the contributors
             await serviceRegistry.approve(contributors.address, serviceId);
@@ -387,6 +392,51 @@ describe("Staking Contribute", function () {
 
             // Stake the service again
             await contributors.stake(socialId, serviceId, stakingToken.address);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Mint, stake, unstake and stake again without service collection", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Approve OLAS for contributors
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+
+            // Create and stake the service
+            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
+
+            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
+            await helpers.time.increase(maxInactivity);
+
+            // Unstake the service with transferring the service back to the contributor
+            await contributors.unstake(false);
+
+            // Try to re-stake without approved funds
+            await expect(
+                contributors.stake(socialId, serviceId, stakingToken.address)
+            ).to.be.reverted;
+
+            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
+            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+
+            // Stake the service again
+            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
+
+            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
+            await helpers.time.increase(maxInactivity);
+
+            // Unstake the service with transferring the service back to the contributor
+            await contributors.unstake(false);
+
+            // Pull the service
+            await contributors.pullUnbondedService();
+
+            // Try to pull already pulled service again
+            await expect(
+                contributors.pullUnbondedService()
+            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
 
             // Restore a previous state of blockchain
             snapshot.restore();

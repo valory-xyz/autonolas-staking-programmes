@@ -401,7 +401,7 @@ contract Contributors is ERC721TokenReceiver {
 
         // Check for existing service corresponding to the msg.sender
         ServiceInfo storage serviceInfo = mapAccountServiceInfo[msg.sender];
-        if (serviceInfo.serviceId > 0) {
+        if (serviceInfo.multisig != address(0)) {
             revert ServiceAlreadyStaked(socialId, serviceInfo.serviceId, serviceInfo.multisig);
         }
 
@@ -452,7 +452,7 @@ contract Contributors is ERC721TokenReceiver {
     /// @param socialId Social Id.
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance.
-    function stake(uint256 socialId, uint256 serviceId, address stakingInstance) external {
+    function stake(uint256 socialId, uint256 serviceId, address stakingInstance) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -461,7 +461,7 @@ contract Contributors is ERC721TokenReceiver {
 
         // Check for existing service corresponding to the msg.sender
         ServiceInfo storage serviceInfo = mapAccountServiceInfo[msg.sender];
-        if (serviceInfo.serviceId > 0) {
+        if (serviceInfo.multisig != address(0)) {
             revert ServiceAlreadyStaked(socialId, serviceInfo.serviceId, serviceInfo.multisig);
         }
 
@@ -541,6 +541,9 @@ contract Contributors is ERC721TokenReceiver {
         // Transfer back OLAS tokens
         IToken(olas).transfer(contributor, refund);
 
+        // Transfer back cover deposit
+        msg.sender.call{value: 1 + NUM_AGENT_INSTANCES}("");
+
         // Transfer the service back to the original owner, if requested
         if (pullService) {
             INFToken(serviceRegistry).transferFrom(address(this), contributor, serviceId);
@@ -550,8 +553,8 @@ contract Contributors is ERC721TokenReceiver {
             delete mapAccountServiceInfo[contributor];
         } else {
             // Partially remove contribute records, such that the service could be pulled later
-            mapAccountServiceInfo[contributor].socialId = socialId;
-            mapAccountServiceInfo[contributor].serviceId = serviceId;
+            mapAccountServiceInfo[contributor].multisig = address(0);
+            mapAccountServiceInfo[contributor].stakingInstance = address(0);
         }
 
         emit Unstaked(socialId, contributor, serviceId, multisig, stakingInstance);
