@@ -91,6 +91,7 @@ contract RecovererContributeManager {
         serviceRegistry = _serviceRegistry;
         serviceRegistryTokenUtility = _serviceRegistryTokenUtility;
         drainer = _drainer;
+        refundFactor = _refundFactor;
 
         owner = msg.sender;
     }

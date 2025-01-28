@@ -18,7 +18,7 @@ N/A
     Please, re-check tests!!
     Why we needed uint256 refund = securityDeposit * refundFactor / 1e18; ?
 ```
-[]
+[x] Fixed
 
 #### Medium/Notes: old proxy vs new implementation.
 ```
@@ -27,7 +27,7 @@ Because, they are not compatible at the storage planning/using level.
 So, depricated contract only for history.
 Never use new implementation with old proxy!
 ```
-[]
+[x] Noted
 
 #### Medium: Missed re-entrancy guard Contributors
 ```
@@ -36,7 +36,7 @@ function pullUnbondedService() external {}
         // Clear contributor records completely
         delete mapAccountServiceInfo[msg.sender]; - first
 ```
-[]
+[x] Fixed
 
 #### Notes: Optimization Contributors
 ```
@@ -44,7 +44,7 @@ function pullUnbondedService() external {}
         serviceRegistryTokenUtility = IService(serviceManager).serviceRegistryTokenUtility();
         serviceManager => _serviceManager # No need to read from storage again.
 ```
-[]
+[x] Fixed
 
 #### Notes: Low/Optimization underscore variable _nonce in storage
 ```
@@ -55,7 +55,7 @@ function pullUnbondedService() external {}
     We are used to the fact that the underscore in front is a variable in memory
     Exclude _locked.
 ```
-[]
+[x] Noted
 
 #### Notes: checks-effects-interactions (CEI) pattern as possible
 ```
@@ -69,7 +69,7 @@ function _unstake(
            delete mapAccountServiceInfo[msg.sender];
            INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId); 
 ```
-[]
+[x] Fixed
 
 #### Notes: remove or fix TODO
 ```
@@ -77,7 +77,7 @@ grep -r TODO ./contracts/
 ./contracts/contribute/Contributors.sol:    // TODO provide as input params where needed instead of setting state vars
 ./contracts/contribute/Contributors.sol:    // TODO provide as input params where needed instead of setting state vars
 ```
-[]
+[x] Fixed
 
 
 

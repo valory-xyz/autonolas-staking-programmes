@@ -92,6 +92,8 @@ struct ServiceInfo {
 contract Contributors is ERC721TokenReceiver {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
+    event SafeContractsChanged(address indexed safeMultisig, address indexed safeSameAddressMultisig,
+        address indexed fallbackHandler);
     event SetContributeServiceStatuses(address[] contributeServices, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
     event CreatedAndStaked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
@@ -128,7 +130,6 @@ contract Contributors is ERC721TokenReceiver {
     address public immutable serviceRegistryTokenUtility;
     // Staking factory address
     address public immutable stakingFactory;
-    // TODO provide as input params where needed instead of setting state vars
     // Safe multisig processing contract address
     address public safeMultisig;
     // Safe same address multisig contract address
@@ -179,11 +180,10 @@ contract Contributors is ERC721TokenReceiver {
         serviceManager = _serviceManager;
         olas = _olas;
         stakingFactory = _stakingFactory;
-        serviceRegistry = IService(serviceManager).serviceRegistry();
-        serviceRegistryTokenUtility = IService(serviceManager).serviceRegistryTokenUtility();
+        serviceRegistry = IService(_serviceManager).serviceRegistry();
+        serviceRegistryTokenUtility = IService(_serviceManager).serviceRegistryTokenUtility();
     }
 
-    // TODO provide as input params where needed instead of setting state vars
     /// @dev Contributors initializer.
     /// @param _safeMultisig Safe multisig contract address.
     /// @param _safeSameAddressMultisig Safe same address multisig contract address.
@@ -194,14 +194,7 @@ contract Contributors is ERC721TokenReceiver {
             revert AlreadyInitialized();
         }
 
-        // Check for zero addresses
-        if (_safeMultisig == address(0) || _safeSameAddressMultisig == address(0) || _fallbackHandler == address(0)) {
-            revert ZeroAddress();
-        }
-
-        safeMultisig = _safeMultisig;
-        safeSameAddressMultisig = _safeSameAddressMultisig;
-        fallbackHandler = _fallbackHandler;
+        _changeSafeParams(_safeMultisig, _safeSameAddressMultisig, _fallbackHandler);
 
         owner = msg.sender;
     }
@@ -242,6 +235,44 @@ contract Contributors is ERC721TokenReceiver {
 
         owner = newOwner;
         emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes Safe-related params.
+    /// @param newSafeMultisig New safe multisig contract address.
+    /// @param newSafeSameAddressMultisig New safe same address multisig contract address.
+    /// @param newFallbackHandler New multisig fallback handler address.
+    function _changeSafeParams(
+        address newSafeMultisig,
+        address newSafeSameAddressMultisig,
+        address newFallbackHandler
+    ) internal {
+        // Check for zero addresses
+        if (newSafeMultisig == address(0) || newSafeSameAddressMultisig == address(0) || newFallbackHandler == address(0)) {
+            revert ZeroAddress();
+        }
+
+        safeMultisig = newSafeMultisig;
+        safeSameAddressMultisig = newSafeSameAddressMultisig;
+        fallbackHandler = newFallbackHandler;
+    }
+
+    /// @dev Changes Safe-related contract addresses.
+    /// @param newSafeMultisig Safe multisig contract address.
+    /// @param newSafeSameAddressMultisig Safe same address multisig contract address.
+    /// @param newFallbackHandler Multisig fallback handler address.
+    function changeSafeContracts(
+        address newSafeMultisig,
+        address newSafeSameAddressMultisig,
+        address newFallbackHandler
+    ) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        _changeSafeParams(newSafeMultisig, newSafeSameAddressMultisig, newFallbackHandler);
+
+        emit SafeContractsChanged(newSafeMultisig, newSafeSameAddressMultisig, newFallbackHandler);
     }
 
     /// @dev Sets contribute service multisig statues.
@@ -552,15 +583,17 @@ contract Contributors is ERC721TokenReceiver {
         IToken(olas).transfer(msg.sender, refund);
 
         // Transfer back cover deposit
+        // This action is not checked for success such that there is no malicious behavior possibility
+        // solhint-disable-next-line avoid-low-level-calls
         msg.sender.call{value: refundNative}("");
 
         // Transfer the service back to the original owner, if requested
         if (pullService) {
-            INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId);
-
             // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
             // If the same service is staked back, the multisig activity continues being tracked
             delete mapAccountServiceInfo[msg.sender];
+
+            INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceId);
         } else {
             // Partially remove contribute records, such that the service could be pulled later
             mapAccountServiceInfo[msg.sender].multisig = address(0);
@@ -654,8 +687,14 @@ contract Contributors is ERC721TokenReceiver {
 
     /// @dev Pulls unbonded service by contributor.
     function pullUnbondedService() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for existing service corresponding to the social Id
-        ServiceInfo storage serviceInfo = mapAccountServiceInfo[msg.sender];
+        ServiceInfo memory serviceInfo = mapAccountServiceInfo[msg.sender];
         if (serviceInfo.serviceId == 0) {
             revert ServiceNotDefined(serviceInfo.socialId);
         }
@@ -665,13 +704,15 @@ contract Contributors is ERC721TokenReceiver {
             revert WrongServiceSetup(serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig);
         }
 
-        // Transfer the service back to the original owner
-        INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceInfo.serviceId);
-
         // Clear contributor records completely
         delete mapAccountServiceInfo[msg.sender];
 
+        // Transfer the service back to the original owner
+        INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceInfo.serviceId);
+
         emit ServicePulled(msg.sender, serviceInfo.serviceId);
+
+        _locked = 1;
     }
 
     receive() external payable {}
