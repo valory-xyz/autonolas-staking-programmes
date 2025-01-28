@@ -6,7 +6,7 @@ import {IContributors} from "./interfaces/IContributors.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {IToken, INFToken} from "./interfaces/IToken.sol";
-import "hardhat/console.sol";
+
 // Multisig interface
 interface IMultisig {
     /// @dev Returns array of owners.
