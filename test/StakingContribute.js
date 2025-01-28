@@ -915,6 +915,11 @@ describe("Staking Contribute", function () {
             // Get refund
             await recoverer.recover(serviceId);
 
+            // Try to drain not by the owner
+            await expect(
+                recoverer.connect(signers[1]).drain()
+            ).to.be.revertedWithCustomError(serviceRegistry, "OwnerOnly");
+
             // Drain the remainder of recoverer funds
             await recoverer.drain();
 
