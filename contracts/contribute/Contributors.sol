@@ -6,7 +6,7 @@ import {IContributors} from "./interfaces/IContributors.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {IToken, INFToken} from "./interfaces/IToken.sol";
-
+import "hardhat/console.sol";
 // Multisig interface
 interface IMultisig {
     /// @dev Returns array of owners.
@@ -336,9 +336,23 @@ contract Contributors is ERC721TokenReceiver {
         _nonce = localNonce + 1;
     }
 
-    function _reDeploy(uint256 serviceId, address stakingInstance, address multisig) internal {
+    function _reDeploy(uint256 serviceId, address stakingInstance, address multisig, bool updateService) internal {
         // Get deposit service info for staking
         uint256 minStakingDeposit = IStaking(stakingInstance).minStakingDeposit();
+
+        // Set agent Ids
+        uint32[] memory agentIds = new uint32[](NUM_AGENT_INSTANCES);
+        agentIds[0] = uint32(agentId);
+
+        if (updateService) {
+            address token = IStaking(stakingInstance).stakingToken();
+            // Set agent params
+            IService.AgentParams[] memory agentParams = new IService.AgentParams[](NUM_AGENT_INSTANCES);
+            agentParams[0] = IService.AgentParams(uint32(NUM_AGENT_INSTANCES), uint96(minStakingDeposit));
+            // Update service
+            IService(serviceManager).update(token, configHash, agentIds, agentParams, uint32(THRESHOLD), serviceId);
+        }
+
         // Calculate the total bond required for the service deployment:
         uint256 totalBond = (1 + NUM_AGENT_INSTANCES) * minStakingDeposit;
 
@@ -346,10 +360,6 @@ contract Contributors is ERC721TokenReceiver {
         IToken(olas).transferFrom(msg.sender, address(this), totalBond);
         // Approve token for the serviceRegistryTokenUtility contract
         IToken(olas).approve(serviceRegistryTokenUtility, totalBond);
-
-        // Set agent Ids
-        uint32[] memory agentIds = new uint32[](NUM_AGENT_INSTANCES);
-        agentIds[0] = uint32(agentId);
 
         // Set agent instances as [msg.sender]
         address[] memory instances = new address[](NUM_AGENT_INSTANCES);
@@ -484,7 +494,7 @@ contract Contributors is ERC721TokenReceiver {
         // Check for pre-registration or deployed service state
         if (state == IService.ServiceState.PreRegistration) {
             // If pre-registration - re-deploy service first
-            _reDeploy(serviceId, stakingInstance, multisig);
+            _reDeploy(serviceId, stakingInstance, multisig, false);
         } else if (state != IService.ServiceState.Deployed) {
             revert WrongServiceState(socialId, serviceId, state);
         }
@@ -565,7 +575,7 @@ contract Contributors is ERC721TokenReceiver {
     ///         Thus, make sure to approve a new stake amount in order to be able to re-deploy the service and stake it.
     ///         If service staking addresses match, service must be evicted to be re-staked.
     /// @param nextStakingInstance Staking instance address to re-stake to.
-    function reStake(address nextStakingInstance) external {
+    function reStake(address nextStakingInstance) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -599,7 +609,7 @@ contract Contributors is ERC721TokenReceiver {
             _unstake(serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig, serviceInfo.stakingInstance, false);
 
             // Re-deploy the service
-            _reDeploy(serviceInfo.serviceId, serviceInfo.multisig, nextStakingInstance);
+            _reDeploy(serviceInfo.serviceId, nextStakingInstance, serviceInfo.multisig, true);
 
             // Approve service NFT for the next staking instance
             INFToken(serviceRegistry).approve(nextStakingInstance, serviceInfo.serviceId);
@@ -607,6 +617,8 @@ contract Contributors is ERC721TokenReceiver {
             // Stake the service
             IStaking(nextStakingInstance).stake(serviceInfo.serviceId);
 
+            // Record the multisig value again, as it was deleted during the _unstake()
+            mapAccountServiceInfo[msg.sender].multisig = serviceInfo.multisig;
             // Change contributor staking instance
             mapAccountServiceInfo[msg.sender].stakingInstance = nextStakingInstance;
         }

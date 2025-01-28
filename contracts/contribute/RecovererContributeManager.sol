@@ -130,11 +130,6 @@ contract RecovererContributeManager {
         (uint96 securityDeposit, address multisig, , , , uint32 numAgentInstances, IService.ServiceState state) =
             IService(serviceRegistry).mapServices(serviceId);
 
-        // Check that the state is TerminatedBonded
-        if (state != IService.ServiceState.TerminatedBonded) {
-            revert WrongServiceState(serviceId, state);
-        }
-
         // Check that the service multisig owner is msg.sender
         address[] memory multisigOwners = IMultisig(multisig).getOwners();
         if (multisigOwners.length != numAgentInstances || multisigOwners[0] != msg.sender) {
@@ -156,6 +151,11 @@ contract RecovererContributeManager {
         // Check that operator balance has been slashed
         if (IService(serviceRegistryTokenUtility).mapOperatorAndServiceIdOperatorBalances(operatorService) != 0) {
             revert ServiceNotSlashed(serviceId);
+        }
+
+        // Check that the state is TerminatedBonded
+        if (state != IService.ServiceState.TerminatedBonded) {
+            revert WrongServiceState(serviceId, state);
         }
 
         // Record refund has been made

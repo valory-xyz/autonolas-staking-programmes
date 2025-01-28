@@ -571,14 +571,75 @@ describe("Staking Contribute", function () {
             // Create and stake the service
             await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
 
-            // Increase the time until the next staking epoch
+            // Increase the time until unstaking is possible
             await helpers.time.increase(maxInactivity);
 
             // Call the checkpoint
             await stakingToken.checkpoint();
 
-            // The service is currently evicted, re-stake (unstake and stake again)
-            await contributors.reStake(stakingToken.address);
+            // Set up a different staking contract
+            const testServiceParams = JSON.parse(JSON.stringify(serviceParams));
+            testServiceParams.minStakingDeposit = regDeposit * 2;
+
+            // Deploy staking contract
+            let initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
+                [testServiceParams, serviceRegistryTokenUtility.address, token.address]);
+            let tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
+            let res = await tx.wait();
+            // Get staking contract instance address from the event
+            let nextStakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
+            let nextStakingToken = await ethers.getContractAt("StakingToken", nextStakingTokenAddress);
+
+            // Fund staking contract
+            await token.approve(nextStakingTokenAddress, ethers.utils.parseEther("1"));
+            await nextStakingToken.deposit(ethers.utils.parseEther("1"));
+
+            // Try to re-stake to a different contract without increasing approve
+            await expect(
+                contributors.reStake(nextStakingTokenAddress)
+            ).to.be.reverted;
+
+            // Approve more OLAS for contributors
+            await token.approve(contributors.address, testServiceParams.minStakingDeposit * 2);
+
+            // The service is currently evicted, re-stake to a different contract
+            await contributors.reStake(nextStakingTokenAddress, {value: 2});
+
+            // Increase the time until unstaking is possible
+            await helpers.time.increase(maxInactivity);
+
+            // Call the checkpoint
+            await nextStakingToken.checkpoint();
+
+            // Set up yet another different staking contract
+            testServiceParams.minStakingDeposit = regDeposit / 4;
+
+            initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
+                [testServiceParams, serviceRegistryTokenUtility.address, token.address]);
+            tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
+            res = await tx.wait();
+            // Get staking contract instance address from the event
+            nextStakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
+            nextStakingToken = await ethers.getContractAt("StakingToken", nextStakingTokenAddress);
+
+            // Fund staking contract
+            await token.approve(nextStakingTokenAddress, ethers.utils.parseEther("1"));
+            await nextStakingToken.deposit(ethers.utils.parseEther("1"));
+
+            // Approve fewer OLAS for contributors
+            await token.approve(contributors.address, testServiceParams.minStakingDeposit * 2);
+
+            // The service is currently evicted, re-stake to a different contract
+            await contributors.reStake(nextStakingTokenAddress, {value: 2});
+
+            // Increase the time until unstaking is possible
+            await helpers.time.increase(maxInactivity);
+
+            // Call the checkpoint
+            await nextStakingToken.checkpoint();
+
+            // Unstake the service
+            await contributors.unstake(true);
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -746,7 +807,55 @@ describe("Staking Contribute", function () {
     });
 
     context("Contribute manager recovery", function () {
-        it("Create and stake", async function () {
+        it("Ownership violations", async function () {
+            // Trying to change owner from a non-owner account address
+            await expect(
+                recoverer.connect(operator).changeOwner(operator.address)
+            ).to.be.revertedWithCustomError(serviceRegistry, "OwnerOnly");
+
+            // Trying to change owner for the zero address
+            await expect(
+                recoverer.connect(deployer).changeOwner(AddressZero)
+            ).to.be.revertedWithCustomError(serviceRegistry, "ZeroAddress");
+
+            // Changing the owner
+            await recoverer.connect(deployer).changeOwner(operator.address);
+
+            // Trying to change owner from the previous owner address
+            await expect(
+                recoverer.connect(deployer).changeOwner(deployer.address)
+            ).to.be.revertedWithCustomError(serviceRegistry, "OwnerOnly");
+        });
+
+        it("Failing to initialize with wrong parameters", async function () {
+            const Recoverer = await ethers.getContractFactory("RecovererContributeManager");
+            await expect(
+                Recoverer.deploy(AddressZero, contributeManager.address, serviceRegistry.address,
+                    serviceRegistryTokenUtility.address, deployer.address, refundFactor)
+            ).to.be.revertedWithCustomError(Recoverer, "ZeroAddress");
+            await expect(
+                Recoverer.deploy(token.address, AddressZero, serviceRegistry.address,
+                    serviceRegistryTokenUtility.address, deployer.address, refundFactor)
+            ).to.be.revertedWithCustomError(Recoverer, "ZeroAddress");
+            await expect(
+                Recoverer.deploy(token.address, contributeManager.address, AddressZero,
+                    serviceRegistryTokenUtility.address, deployer.address, refundFactor)
+            ).to.be.revertedWithCustomError(Recoverer, "ZeroAddress");
+            await expect(
+                Recoverer.deploy(token.address, contributeManager.address, serviceRegistry.address,
+                    AddressZero, deployer.address, refundFactor)
+            ).to.be.revertedWithCustomError(Recoverer, "ZeroAddress");
+            await expect(
+                Recoverer.deploy(token.address, contributeManager.address, serviceRegistry.address,
+                    serviceRegistryTokenUtility.address, AddressZero, refundFactor)
+            ).to.be.revertedWithCustomError(Recoverer, "ZeroAddress");
+            await expect(
+                Recoverer.deploy(token.address, contributeManager.address, serviceRegistry.address,
+                    serviceRegistryTokenUtility.address, deployer.address, 0)
+            ).to.be.revertedWithCustomError(Recoverer, "ZeroValue");
+        });
+
+        it("Create stake, partially unstake and recover", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -759,8 +868,18 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
+            // Try to recover without unstaking
+            await expect(
+                recoverer.recover(serviceId)
+            ).to.be.revertedWithCustomError(recoverer, "OwnerOnly");
+
             // Unstake the service
             await contributeManager.unstake();
+
+            // Try to recover without slashing
+            await expect(
+                recoverer.recover(serviceId)
+            ).to.be.revertedWithCustomError(recoverer, "ServiceNotSlashed");
 
             // START RECOVERY PROCEDURE
             // Slash service
@@ -779,6 +898,11 @@ describe("Staking Contribute", function () {
             // Check slashed balance
             const slashedBalance = await serviceRegistryTokenUtility.mapSlashedFunds(token.address);
             expect(slashedBalance).to.equal(serviceParams.minStakingDeposit);
+
+            // Try to recover without terminating
+            await expect(
+                recoverer.recover(serviceId)
+            ).to.be.revertedWithCustomError(recoverer, "WrongServiceState");
 
             // Terminate the service
             await serviceManager.terminate(serviceId);
@@ -799,6 +923,11 @@ describe("Staking Contribute", function () {
 
             // Drain ServiceRegistryTokenUtility
             await serviceRegistryTokenUtility.drain(token.address);
+
+            // Try to recover again
+            await expect(
+                recoverer.recover(serviceId)
+            ).to.be.revertedWithCustomError(recoverer, "AlreadyRefunded");
 
             // Restore a previous state of blockchain
             snapshot.restore();
