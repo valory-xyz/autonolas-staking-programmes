@@ -40,7 +40,7 @@ describe("Staking Contribute", function () {
     const threshold = 1;
     const livenessPeriod = 10; // Ten seconds
     const initSupply = "5" + "0".repeat(26);
-    const refundFactor = ethers.utils.parseEther("1");
+    const refundFactor = ethers.utils.parseEther("1.3");
     const payload = "0x";
     const livenessRatio = "1" + "0".repeat(16); // 0.01 transaction per second (TPS)
     let serviceParams = {
@@ -323,6 +323,14 @@ describe("Staking Contribute", function () {
             await expect(
                 ContributeActivityChecker.deploy(contributorsTest.address, 0)
             ).to.be.revertedWithCustomError(ContributeActivityChecker, "ZeroValue");
+
+            // Try to change Safe contracts not by the owner
+            await expect(
+                contributors.connect(signers[1]).changeSafeContracts(AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(contributors, "OwnerOnly");
+
+            await contributors.changeSafeContracts(gnosisSafeMultisig.address, gnosisSafeSameAddressMultisig.address,
+                fallbackHandler.address);
         });
     });
 
@@ -912,8 +920,14 @@ describe("Staking Contribute", function () {
                 serviceManager.unbond(serviceId)
             ).to.be.revertedWithCustomError(serviceRegistry, "OperatorHasNoInstances");
 
+            const balanceBefore = await token.balanceOf(deployer.address);
             // Get refund
             await recoverer.recover(serviceId);
+            const balanceAfter = await token.balanceOf(deployer.address);
+            const balanceDiff = balanceAfter.sub(balanceBefore);
+
+            const fraction = Number(balanceDiff) / Number(serviceParams.minStakingDeposit);
+            expect(fraction).to.equal(Number(refundFactor) * 1.0 / 10**18);
 
             // Try to drain not by the owner
             await expect(
