@@ -15,11 +15,11 @@
   "serviceRegistryTokenUtilityAddress":"0x34C895f302D0b5cf52ec0Edd3945321EB0f83dd5",
   "serviceManagerTokenAddress":"0x63e66d7ad413C01A7b49C7FF4e3Bb765C4E4bd1b",
   "gnosisSafeMultisigImplementationAddress":"0x22bE6fDcd3e29851B29b512F714C328A00A96B83",
+  "gnosisSafeSameAddressMultisigImplementationAddress":"0x22bE6fDcd3e29851B29b512F714C328A00A96B83",
   "stakingTokenAddress":"0xEB5638eefE289691EcE01943f768EDBF96258a80",
   "stakingFactoryAddress":"0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
   "agentId":"41",
   "configHash":"0xd984ec4ebedd513d8132366f2525aa2258eaddb1cf5abdafb0d0fb7dd87ce1a1",
-  "contributorsAddress":"0x6e7f594f680f7aBad18b7a63de50F0FeE47dfD06",
-  "contributorsProxyAddress":"0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94",
-  "contributeManagerAddress":"0xaea9ef993d8a1A164397642648DF43F053d43D85"
+  "contributorsAddress":"0xE85791B18F5df42163092Acc5C9da1c479AFEa9d",
+  "contributorsProxyAddress":"0x343F2B005cF6D70bA610CD9F1F1927049414B582"
 }

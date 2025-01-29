@@ -17,9 +17,9 @@
   "gnosisSafeMultisigImplementationAddress":"0x22bE6fDcd3e29851B29b512F714C328A00A96B83",
   "stakingTokenAddress":"0xEB5638eefE289691EcE01943f768EDBF96258a80",
   "stakingFactoryAddress":"0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
-  "contributorsProxyAddress":"0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94",
+  "contributorsProxyAddress":"0x343F2B005cF6D70bA610CD9F1F1927049414B582",
   "livenessRatio":"5787037037037",
-  "contributeActivityCheckerAddress":"",
+  "contributeActivityCheckerAddress":"0x87f89F94033305791B6269AE2F9cF4e09983E56e",
   "stakingParams":
     {
       "metadataHash":"",
