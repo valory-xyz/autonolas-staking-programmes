@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const contributorsProxyAddress = parsedData.contributorsProxyAddress;
-    const contributeManagerAddress = parsedData.contributeManagerAddress;
+    const livenessRatio = parsedData.livenessRatio;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -42,20 +42,31 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Get the contributors proxy contract
-    const contributorsProxy = await ethers.getContractAt("Contributors", contributorsProxyAddress);
-
-    const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-
     // Transaction signing and execution
-    console.log("11. EOA to change manager in ContributorsProxy");
-    console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).changeManager()");
-    const result = await contributorsProxy.connect(EOA).changeManager(contributeManagerAddress, { gasPrice });
+    console.log("9. EOA to deploy ContributeActivityChecker");
+    const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
+    const ContributeActivityChecker = await ethers.getContractFactory("ContributeActivityChecker");
+    console.log("You are signing the following transaction: ContributeActivityChecker.connect(EOA).deploy()");
+    const contributeActivityChecker = await ContributeActivityChecker.connect(EOA).deploy(contributorsProxyAddress,
+        livenessRatio, { gasPrice });
+    const result = await contributeActivityChecker.deployed();
 
     // Transaction details
-    console.log("Contract deployment: ContributorsProxy");
-    console.log("Contract address:", contributorsProxy.address);
-    console.log("Transaction:", result.hash);
+    console.log("Contract deployment: ContributeActivityChecker");
+    console.log("Contract address:", contributeActivityChecker.address);
+    console.log("Transaction:", result.deployTransaction.hash);
+    // Wait half a minute for the transaction completion
+    await new Promise(r => setTimeout(r, 30000));
+
+    // Writing updated parameters back to the JSON file
+    parsedData.contributeActivityCheckerAddress = contributeActivityChecker.address;
+    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
+
+    // Contract verification
+    if (parsedData.contractVerification) {
+        const execSync = require("child_process").execSync;
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_09_contribute_activity_checker.js --network " + providerName + " " + contributeActivityChecker.address, { encoding: "utf-8" });
+    }
 }
 
 main()
