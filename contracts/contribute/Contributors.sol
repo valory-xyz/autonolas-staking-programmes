@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
 import {IContributors} from "./interfaces/IContributors.sol";
+import {IErrors} from "./interfaces/IErrors.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {IToken, INFToken} from "./interfaces/IToken.sol";
@@ -13,64 +14,6 @@ interface IMultisig {
     /// @return Array of Safe owners.
     function getOwners() external view returns (address[] memory);
 }
-
-/// @dev Zero address.
-error ZeroAddress();
-
-/// @dev Zero value.
-error ZeroValue();
-
-/// @dev Only `owner` has a privilege, but the `sender` was provided.
-/// @param sender Sender address.
-/// @param owner Required sender address as an owner.
-error OwnerOnly(address sender, address owner);
-
-/// @dev The contract is already initialized.
-error AlreadyInitialized();
-
-/// @dev Wrong length of two arrays.
-/// @param numValues1 Number of values in a first array.
-/// @param numValues2 Number of values in a second array.
-error WrongArrayLength(uint256 numValues1, uint256 numValues2);
-
-/// @dev Account is unauthorized.
-/// @param account Account address.
-error UnauthorizedAccount(address account);
-
-/// @dev Caught reentrancy violation.
-error ReentrancyGuard();
-
-/// @dev Service is already created and staked for the contributor.
-/// @param socialId Social Id.
-/// @param serviceId Service Id.
-/// @param multisig Multisig address.
-error ServiceAlreadyStaked(uint256 socialId, uint256 serviceId, address multisig);
-
-/// @dev Wrong staking instance.
-/// @param stakingInstance Staking instance address.
-error WrongStakingInstance(address stakingInstance);
-
-/// @dev Wrong provided service setup.
-/// @param socialId Social Id.
-/// @param serviceId Service Id.
-/// @param multisig Multisig address.
-error WrongServiceSetup(uint256 socialId, uint256 serviceId, address multisig);
-
-/// @dev Wrong service state.
-/// @param socialId Social Id.
-/// @param serviceId Service Id.
-/// @param state Service state.
-error WrongServiceState(uint256 socialId, uint256 serviceId, IService.ServiceState state);
-
-/// @dev Service is not defined for the social Id.
-/// @param socialId Social Id.
-error ServiceNotDefined(uint256 socialId);
-
-/// @dev Wrong service owner.
-/// @param serviceId Service Id.
-/// @param sender Sender address.
-/// @param serviceOwner Actual service owner.
-error ServiceOwnerOnly(uint256 serviceId, address sender, address serviceOwner);
 
 // Struct for service info
 struct ServiceInfo {
@@ -89,9 +32,11 @@ struct ServiceInfo {
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Tatiana Priemova - <tatiana.priemova@valory.xyz>
 /// @author David Vilela - <david.vilelafreire@valory.xyz>
-contract Contributors is ERC721TokenReceiver {
+contract Contributors is ERC721TokenReceiver, IErrors {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
+    event SafeContractsChanged(address indexed safeMultisig, address indexed safeSameAddressMultisig,
+        address indexed fallbackHandler);
     event SetContributeServiceStatuses(address[] contributeServices, bool[] statuses);
     event MultisigActivityChanged(address indexed senderAgent, address[] multisigs, uint256[] activityChanges);
     event CreatedAndStaked(uint256 indexed socialId, address indexed serviceOwner, uint256 serviceId,
@@ -128,7 +73,6 @@ contract Contributors is ERC721TokenReceiver {
     address public immutable serviceRegistryTokenUtility;
     // Staking factory address
     address public immutable stakingFactory;
-    // TODO provide as input params where needed instead of setting state vars
     // Safe multisig processing contract address
     address public safeMultisig;
     // Safe same address multisig contract address
@@ -179,11 +123,183 @@ contract Contributors is ERC721TokenReceiver {
         serviceManager = _serviceManager;
         olas = _olas;
         stakingFactory = _stakingFactory;
-        serviceRegistry = IService(serviceManager).serviceRegistry();
-        serviceRegistryTokenUtility = IService(serviceManager).serviceRegistryTokenUtility();
+        serviceRegistry = IService(_serviceManager).serviceRegistry();
+        serviceRegistryTokenUtility = IService(_serviceManager).serviceRegistryTokenUtility();
     }
 
-    // TODO provide as input params where needed instead of setting state vars
+    /// @dev Changes Safe-related params.
+    /// @param newSafeMultisig New safe multisig contract address.
+    /// @param newSafeSameAddressMultisig New safe same address multisig contract address.
+    /// @param newFallbackHandler New multisig fallback handler address.
+    function _changeSafeParams(
+        address newSafeMultisig,
+        address newSafeSameAddressMultisig,
+        address newFallbackHandler
+    ) internal {
+        // Check for zero addresses
+        if (newSafeMultisig == address(0) || newSafeSameAddressMultisig == address(0) || newFallbackHandler == address(0)) {
+            revert ZeroAddress();
+        }
+
+        safeMultisig = newSafeMultisig;
+        safeSameAddressMultisig = newSafeSameAddressMultisig;
+        fallbackHandler = newFallbackHandler;
+    }
+
+    /// @dev Gets and checks service params required for contributor.
+    /// @param stakingInstance Staking instance address.
+    /// @return token Staking token address.
+    /// @return minStakingDeposit Minimum service security deposit.
+    /// @return agentIds Service agent Ids.
+    /// @return agentParams Corresponding service agent params.
+    function _getCheckServiceParams(
+        address stakingInstance
+    ) internal view returns (
+        address token,
+        uint256 minStakingDeposit,
+        uint32[] memory agentIds,
+        IService.AgentParams[] memory agentParams
+    ) {
+        // Get service info for staking
+        uint256 numAgentInstances = IStaking(stakingInstance).numAgentInstances();
+        uint256 threshold = IStaking(stakingInstance).threshold();
+        // Check for number of agent instances that must be equal to one,
+        // since msg.sender is the only service multisig owner
+        if ((numAgentInstances > 0 &&  numAgentInstances != NUM_AGENT_INSTANCES) ||
+            (threshold > 0 && threshold != THRESHOLD)) {
+            revert WrongStakingInstance(stakingInstance);
+        }
+
+        // Get the token info from the staking contract
+        // If this call fails, it means the staking contract does not have a token and is not compatible
+        token = IStaking(stakingInstance).stakingToken();
+        // Check the token address
+        if (token != olas) {
+            revert WrongStakingInstance(stakingInstance);
+        }
+
+        // Set agent Ids
+        agentIds = new uint32[](NUM_AGENT_INSTANCES);
+        agentIds[0] = uint32(agentId);
+
+        minStakingDeposit = IStaking(stakingInstance).minStakingDeposit();
+
+        // Set agent params
+        agentParams = new IService.AgentParams[](NUM_AGENT_INSTANCES);
+        agentParams[0] = IService.AgentParams(uint32(NUM_AGENT_INSTANCES), uint96(minStakingDeposit));
+    }
+
+    /// @dev Activates service agent registration and registers agent instance.
+    /// @param serviceId Minted service Id.
+    /// @param minStakingDeposit Minimum service security deposit.
+    /// @param agentIds Service agent Ids.
+    function _activateServiceRegisterAgentInstance(
+        uint256 serviceId,
+        uint256 minStakingDeposit,
+        uint32[] memory agentIds
+    ) internal {
+        // Set agent instances as [msg.sender]
+        address[] memory instances = new address[](NUM_AGENT_INSTANCES);
+        instances[0] = msg.sender;
+
+        // Calculate the total bond required for the service deployment
+        uint256 totalBond = (1 + NUM_AGENT_INSTANCES) * minStakingDeposit;
+
+        // Transfer the total bond amount from the contributor
+        IToken(olas).transferFrom(msg.sender, address(this), totalBond);
+        // Approve token for the serviceRegistryTokenUtility contract
+        IToken(olas).approve(serviceRegistryTokenUtility, totalBond);
+
+        // Activate registration (1 wei as a deposit wrapper)
+        IService(serviceManager).activateRegistration{value: 1}(serviceId);
+
+        // Register msg.sender as an agent instance (numAgentInstances wei as a bond wrapper)
+        IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId, instances, agentIds);
+    }
+
+    /// @dev Re-deploys the service.
+    /// @param serviceId Service Id.
+    /// @param stakingInstance Staking instance address.
+    /// @param multisig Corresponding service multisig.
+    /// @param updateService True if service update is required.
+    function _reDeploy(uint256 serviceId, address stakingInstance, address multisig, bool updateService) internal {
+        // Get and check service params
+        (address token, uint256 minStakingDeposit, uint32[] memory agentIds, IService.AgentParams[] memory agentParams) =
+                        _getCheckServiceParams(stakingInstance);
+
+        // Update service
+        if (updateService) {
+            IService(serviceManager).update(token, configHash, agentIds, agentParams, uint32(THRESHOLD), serviceId);
+        }
+
+        // Activate registration and register agent instance
+        _activateServiceRegisterAgentInstance(serviceId, minStakingDeposit, agentIds);
+
+        // Prepare re-deployment payload
+        bytes memory data = abi.encodePacked(multisig);
+        // Re-deploy service
+        IService(serviceManager).deploy(serviceId, safeSameAddressMultisig, data);
+    }
+
+    /// @dev Stakes the already deployed service.
+    /// @param socialId Social Id.
+    /// @param serviceId Service Id.
+    /// @param multisig Corresponding service multisig.
+    /// @param stakingInstance Staking instance address.
+    function _stake(uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) internal {
+        // Add the service into its social Id corresponding record
+        mapAccountServiceInfo[msg.sender] = ServiceInfo(socialId, serviceId, multisig, stakingInstance);
+
+        // Approve service NFT for the staking instance
+        INFToken(serviceRegistry).approve(stakingInstance, serviceId);
+
+        // Stake the service
+        IStaking(stakingInstance).stake(serviceId);
+    }
+
+    /// @dev Unstakes service Id corresponding to the msg.sender and clears the contributor record.
+    /// @param serviceInfo Contributor service info.
+    /// @param pullService True if requested to transfer service to be owned by msg.sender.
+    function _unstake(ServiceInfo memory serviceInfo, bool pullService) internal {
+        // Unstake the service
+        IStaking(serviceInfo.stakingInstance).unstake(serviceInfo.serviceId);
+
+        // Terminate service
+        (, uint256 refund) = IService(serviceManager).terminate(serviceInfo.serviceId);
+        uint256 refundNative = 1;
+
+        // Unbond service, if operator is address(this)
+        if (IService(serviceRegistry).mapAgentInstanceOperators(msg.sender) == address(this)) {
+            (, uint256 unbondAmount) = IService(serviceManager).unbond(serviceInfo.serviceId);
+            refund += unbondAmount;
+            refundNative += NUM_AGENT_INSTANCES;
+        }
+
+        // Transfer back OLAS tokens
+        IToken(olas).transfer(msg.sender, refund);
+
+        // Transfer back cover deposit
+        // This action is not checked for success such that there is no malicious behavior possibility
+        // solhint-disable-next-line avoid-low-level-calls
+        msg.sender.call{value: refundNative}("");
+
+        // Transfer the service back to the original owner, if requested
+        if (pullService) {
+            // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
+            // If the same service is staked back, the multisig activity continues being tracked
+            delete mapAccountServiceInfo[msg.sender];
+
+            INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceInfo.serviceId);
+        } else {
+            // Partially remove contribute records, such that the service could be pulled later
+            mapAccountServiceInfo[msg.sender].multisig = address(0);
+            mapAccountServiceInfo[msg.sender].stakingInstance = address(0);
+        }
+
+        emit Unstaked(serviceInfo.socialId, msg.sender, serviceInfo.serviceId, serviceInfo.multisig,
+            serviceInfo.stakingInstance);
+    }
+
     /// @dev Contributors initializer.
     /// @param _safeMultisig Safe multisig contract address.
     /// @param _safeSameAddressMultisig Safe same address multisig contract address.
@@ -194,14 +310,7 @@ contract Contributors is ERC721TokenReceiver {
             revert AlreadyInitialized();
         }
 
-        // Check for zero addresses
-        if (_safeMultisig == address(0) || _safeSameAddressMultisig == address(0) || _fallbackHandler == address(0)) {
-            revert ZeroAddress();
-        }
-
-        safeMultisig = _safeMultisig;
-        safeSameAddressMultisig = _safeSameAddressMultisig;
-        fallbackHandler = _fallbackHandler;
+        _changeSafeParams(_safeMultisig, _safeSameAddressMultisig, _fallbackHandler);
 
         owner = msg.sender;
     }
@@ -242,6 +351,25 @@ contract Contributors is ERC721TokenReceiver {
 
         owner = newOwner;
         emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes Safe-related contract addresses.
+    /// @param newSafeMultisig Safe multisig contract address.
+    /// @param newSafeSameAddressMultisig Safe same address multisig contract address.
+    /// @param newFallbackHandler Multisig fallback handler address.
+    function changeSafeContracts(
+        address newSafeMultisig,
+        address newSafeSameAddressMultisig,
+        address newFallbackHandler
+    ) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        _changeSafeParams(newSafeMultisig, newSafeSameAddressMultisig, newFallbackHandler);
+
+        emit SafeContractsChanged(newSafeMultisig, newSafeSameAddressMultisig, newFallbackHandler);
     }
 
     /// @dev Sets contribute service multisig statues.
@@ -293,96 +421,6 @@ contract Contributors is ERC721TokenReceiver {
         emit MultisigActivityChanged(msg.sender, multisigs, activityChanges);
     }
 
-    /// @dev Creates and deploys a service for the contributor.
-    /// @param token Staking token address.
-    /// @param minStakingDeposit Min staking deposit value.
-    /// @return serviceId Minted service Id.
-    /// @return multisig Service multisig.
-    function _createAndDeploy(
-        address token,
-        uint256 minStakingDeposit
-    ) internal returns (uint256 serviceId, address multisig) {
-        // Set agent params
-        IService.AgentParams[] memory agentParams = new IService.AgentParams[](NUM_AGENT_INSTANCES);
-        agentParams[0] = IService.AgentParams(uint32(NUM_AGENT_INSTANCES), uint96(minStakingDeposit));
-
-        // Set agent Ids
-        uint32[] memory agentIds = new uint32[](NUM_AGENT_INSTANCES);
-        agentIds[0] = uint32(agentId);
-
-        // Set agent instances as [msg.sender]
-        address[] memory instances = new address[](NUM_AGENT_INSTANCES);
-        instances[0] = msg.sender;
-
-        // Create a service owned by this contract
-        serviceId = IService(serviceManager).create(address(this), token, configHash, agentIds,
-            agentParams, uint32(THRESHOLD));
-
-        // Activate registration (1 wei as a deposit wrapper)
-        IService(serviceManager).activateRegistration{value: 1}(serviceId);
-
-        // Register msg.sender as an agent instance (numAgentInstances wei as a bond wrapper)
-        IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId, instances, agentIds);
-
-        // Prepare Safe multisig data
-        uint256 localNonce = _nonce;
-        uint256 randomNonce = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, localNonce)));
-        bytes memory data = abi.encodePacked(address(0), fallbackHandler, address(0), address(0), uint256(0),
-            randomNonce, "0x");
-        // Deploy the service
-        multisig = IService(serviceManager).deploy(serviceId, safeMultisig, data);
-
-        // Update the nonce
-        _nonce = localNonce + 1;
-    }
-
-    function _reDeploy(uint256 serviceId, address stakingInstance, address multisig) internal {
-        // Get deposit service info for staking
-        uint256 minStakingDeposit = IStaking(stakingInstance).minStakingDeposit();
-        // Calculate the total bond required for the service deployment:
-        uint256 totalBond = (1 + NUM_AGENT_INSTANCES) * minStakingDeposit;
-
-        // Transfer the total bond amount from the contributor
-        IToken(olas).transferFrom(msg.sender, address(this), totalBond);
-        // Approve token for the serviceRegistryTokenUtility contract
-        IToken(olas).approve(serviceRegistryTokenUtility, totalBond);
-
-        // Set agent Ids
-        uint32[] memory agentIds = new uint32[](NUM_AGENT_INSTANCES);
-        agentIds[0] = uint32(agentId);
-
-        // Set agent instances as [msg.sender]
-        address[] memory instances = new address[](NUM_AGENT_INSTANCES);
-        instances[0] = msg.sender;
-
-        // Activate registration (1 wei as a deposit wrapper)
-        IService(serviceManager).activateRegistration{value: 1}(serviceId);
-
-        // Register msg.sender as an agent instance (numAgentInstances wei as a bond wrapper)
-        IService(serviceManager).registerAgents{value: NUM_AGENT_INSTANCES}(serviceId, instances, agentIds);
-
-        // Prepare re-deployment payload
-        bytes memory data = abi.encodePacked(multisig);
-        // Re-deploy service
-        IService(serviceManager).deploy(serviceId, safeSameAddressMultisig, data);
-    }
-
-    /// @dev Stakes the already deployed service.
-    /// @param socialId Social Id.
-    /// @param serviceId Service Id.
-    /// @param multisig Corresponding service multisig.
-    /// @param stakingInstance Staking instance.
-    function _stake(uint256 socialId, uint256 serviceId, address multisig, address stakingInstance) internal {
-        // Add the service into its social Id corresponding record
-        mapAccountServiceInfo[msg.sender] = ServiceInfo(socialId, serviceId, multisig, stakingInstance);
-
-        // Approve service NFT for the staking instance
-        INFToken(serviceRegistry).approve(stakingInstance, serviceId);
-
-        // Stake the service
-        IStaking(stakingInstance).stake(serviceId);
-    }
-
     /// @dev Creates and deploys a service for the contributor, and stakes it with a specified staking contract.
     /// @notice The service cannot be registered again if it is currently staked.
     /// @param socialId Contributor social Id.
@@ -401,7 +439,7 @@ contract Contributors is ERC721TokenReceiver {
 
         // Check for existing service corresponding to the msg.sender
         ServiceInfo storage serviceInfo = mapAccountServiceInfo[msg.sender];
-        if (serviceInfo.serviceId > 0) {
+        if (serviceInfo.multisig != address(0)) {
             revert ServiceAlreadyStaked(socialId, serviceInfo.serviceId, serviceInfo.multisig);
         }
 
@@ -410,35 +448,27 @@ contract Contributors is ERC721TokenReceiver {
             revert WrongStakingInstance(stakingInstance);
         }
 
-        // Get the token info from the staking contract
-        // If this call fails, it means the staking contract does not have a token and is not compatible
-        address token = IStaking(stakingInstance).stakingToken();
-        // Check the token address
-        if (token != olas) {
-            revert WrongStakingInstance(stakingInstance);
-        }
+        // Get and check service params
+        (address token, uint256 minStakingDeposit, uint32[] memory agentIds, IService.AgentParams[] memory agentParams) =
+            _getCheckServiceParams(stakingInstance);
 
-        // Get other service info for staking
-        uint256 minStakingDeposit = IStaking(stakingInstance).minStakingDeposit();
-        uint256 numAgentInstances = IStaking(stakingInstance).numAgentInstances();
-        uint256 threshold = IStaking(stakingInstance).threshold();
-        // Check for number of agent instances that must be equal to one,
-        // since msg.sender is the only service multisig owner
-        if ((numAgentInstances > 0 &&  numAgentInstances != NUM_AGENT_INSTANCES) ||
-            (threshold > 0 && threshold != THRESHOLD)) {
-            revert WrongStakingInstance(stakingInstance);
-        }
+        // Create a service owned by this contract
+        uint256 serviceId = IService(serviceManager).create(address(this), token, configHash, agentIds, agentParams,
+            uint32(THRESHOLD));
 
-        // Calculate the total bond required for the service deployment:
-        uint256 totalBond = (1 + NUM_AGENT_INSTANCES) * minStakingDeposit;
+        // Activate registration and register agent instance
+        _activateServiceRegisterAgentInstance(serviceId, minStakingDeposit, agentIds);
 
-        // Transfer the total bond amount from the contributor
-        IToken(olas).transferFrom(msg.sender, address(this), totalBond);
-        // Approve token for the serviceRegistryTokenUtility contract
-        IToken(olas).approve(serviceRegistryTokenUtility, totalBond);
+        // Prepare Safe multisig data
+        uint256 localNonce = _nonce;
+        uint256 randomNonce = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, localNonce)));
+        bytes memory data = abi.encodePacked(address(0), fallbackHandler, address(0), address(0), uint256(0),
+            randomNonce, "0x");
+        // Deploy the service
+        address multisig = IService(serviceManager).deploy(serviceId, safeMultisig, data);
 
-        // Create and deploy service
-        (uint256 serviceId, address multisig) = _createAndDeploy(olas, minStakingDeposit);
+        // Update the nonce
+        _nonce = localNonce + 1;
 
         // Stake the service
         _stake(socialId, serviceId, multisig, stakingInstance);
@@ -451,8 +481,8 @@ contract Contributors is ERC721TokenReceiver {
     /// @dev Stakes the already deployed service.
     /// @param socialId Social Id.
     /// @param serviceId Service Id.
-    /// @param stakingInstance Staking instance.
-    function stake(uint256 socialId, uint256 serviceId, address stakingInstance) external {
+    /// @param stakingInstance Staking instance address.
+    function stake(uint256 socialId, uint256 serviceId, address stakingInstance) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -461,7 +491,7 @@ contract Contributors is ERC721TokenReceiver {
 
         // Check for existing service corresponding to the msg.sender
         ServiceInfo storage serviceInfo = mapAccountServiceInfo[msg.sender];
-        if (serviceInfo.serviceId > 0) {
+        if (serviceInfo.multisig != address(0)) {
             revert ServiceAlreadyStaked(socialId, serviceInfo.serviceId, serviceInfo.multisig);
         }
 
@@ -484,9 +514,9 @@ contract Contributors is ERC721TokenReceiver {
         // Check for pre-registration or deployed service state
         if (state == IService.ServiceState.PreRegistration) {
             // If pre-registration - re-deploy service first
-            _reDeploy(serviceId, stakingInstance, multisig);
+            _reDeploy(serviceId, stakingInstance, multisig, false);
         } else if (state != IService.ServiceState.Deployed) {
-            revert WrongServiceState(socialId, serviceId, state);
+            revert WrongServiceState(socialId, serviceId, uint8(state));
         }
 
         // Stake the service
@@ -498,6 +528,7 @@ contract Contributors is ERC721TokenReceiver {
     }
 
     /// @dev Unstakes service Id corresponding to the msg.sender and clears the contributor record.
+    /// @param pullService True if requested to transfer service to be owned by msg.sender.
     function unstake(bool pullService) external {
         // Reentrancy guard
         if (_locked > 1) {
@@ -511,50 +542,9 @@ contract Contributors is ERC721TokenReceiver {
             revert ServiceNotDefined(serviceInfo.socialId);
         }
 
-        _unstake(msg.sender, serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig,
-            serviceInfo.stakingInstance, pullService);
+        _unstake(serviceInfo, pullService);
 
         _locked = 1;
-    }
-
-    /// @dev Unstakes service Id corresponding to the msg.sender and clears the contributor record.
-    function _unstake(
-        address contributor,
-        uint256 socialId,
-        uint256 serviceId,
-        address multisig,
-        address stakingInstance,
-        bool pullService
-    ) internal {
-        // Unstake the service
-        IStaking(stakingInstance).unstake(serviceId);
-
-        // Terminate service
-        (, uint256 terminateRefund) = IService(serviceManager).terminate(serviceId);
-
-        // Unbond service
-        (, uint256 unbondRefund) = IService(serviceManager).unbond(serviceId);
-
-        // Calculate refund
-        uint256 refund = terminateRefund + unbondRefund;
-
-        // Transfer back OLAS tokens
-        IToken(olas).transfer(contributor, refund);
-
-        // Transfer the service back to the original owner, if requested
-        if (pullService) {
-            INFToken(serviceRegistry).transferFrom(address(this), contributor, serviceId);
-
-            // Zero the service info: the service is out of the contribute records, however multisig activity is still valid
-            // If the same service is staked back, the multisig activity continues being tracked
-            delete mapAccountServiceInfo[contributor];
-        } else {
-            // Partially remove contribute records, such that the service could be pulled later
-            mapAccountServiceInfo[contributor].socialId = socialId;
-            mapAccountServiceInfo[contributor].serviceId = serviceId;
-        }
-
-        emit Unstaked(socialId, contributor, serviceId, multisig, stakingInstance);
     }
 
     /// @dev Re-stakes evicted service Id corresponding to the msg.sender or from one staking instance to another.
@@ -562,7 +552,7 @@ contract Contributors is ERC721TokenReceiver {
     ///         Thus, make sure to approve a new stake amount in order to be able to re-deploy the service and stake it.
     ///         If service staking addresses match, service must be evicted to be re-staked.
     /// @param nextStakingInstance Staking instance address to re-stake to.
-    function reStake(address nextStakingInstance) external {
+    function reStake(address nextStakingInstance) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -593,11 +583,10 @@ contract Contributors is ERC721TokenReceiver {
         } else {
             // Otherwise re-stake to a specified staking instance
             // Unstake the service, terminate, unbond, but keep in CM possession
-            _unstake(msg.sender, serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig,
-                serviceInfo.stakingInstance, false);
+            _unstake(serviceInfo, false);
 
             // Re-deploy the service
-            _reDeploy(serviceInfo.serviceId, serviceInfo.multisig, nextStakingInstance);
+            _reDeploy(serviceInfo.serviceId, nextStakingInstance, serviceInfo.multisig, true);
 
             // Approve service NFT for the next staking instance
             INFToken(serviceRegistry).approve(nextStakingInstance, serviceInfo.serviceId);
@@ -605,6 +594,8 @@ contract Contributors is ERC721TokenReceiver {
             // Stake the service
             IStaking(nextStakingInstance).stake(serviceInfo.serviceId);
 
+            // Record the multisig value again, as it was deleted during the _unstake()
+            mapAccountServiceInfo[msg.sender].multisig = serviceInfo.multisig;
             // Change contributor staking instance
             mapAccountServiceInfo[msg.sender].stakingInstance = nextStakingInstance;
         }
@@ -640,26 +631,31 @@ contract Contributors is ERC721TokenReceiver {
 
     /// @dev Pulls unbonded service by contributor.
     function pullUnbondedService() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for existing service corresponding to the social Id
-        ServiceInfo storage serviceInfo = mapAccountServiceInfo[msg.sender];
+        ServiceInfo memory serviceInfo = mapAccountServiceInfo[msg.sender];
         if (serviceInfo.serviceId == 0) {
             revert ServiceNotDefined(serviceInfo.socialId);
         }
 
-        // Check that the service is in pre-registration state
-        (, , , , , , IService.ServiceState state) = IService(serviceRegistry).mapServices(serviceInfo.serviceId);
-        if (state != IService.ServiceState.PreRegistration) {
-            revert WrongServiceState(serviceInfo.socialId, serviceInfo.serviceId, state);
+        // Check that the multisig record is cleared
+        if (serviceInfo.multisig != address(0)) {
+            revert WrongServiceSetup(serviceInfo.socialId, serviceInfo.serviceId, serviceInfo.multisig);
         }
-
-        // Transfer the service back to the original owner
-        INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceInfo.serviceId);
 
         // Clear contributor records completely
         delete mapAccountServiceInfo[msg.sender];
 
-        emit ServicePulled(msg.sender, serviceInfo.serviceId);
-    }
+        // Transfer the service back to the original owner
+        INFToken(serviceRegistry).transferFrom(address(this), msg.sender, serviceInfo.serviceId);
 
-    receive() external payable {}
+        emit ServicePulled(msg.sender, serviceInfo.serviceId);
+
+        _locked = 1;
+    }
 }
