@@ -67,6 +67,13 @@ contract RecovererContributeManager {
     // Map of account address => refund processed
     mapping(address => bool) public mapAccountRefunds;
 
+    /// @dev RecovererContributeManager constructor.
+    /// @param _olas OLAS address.
+    /// @param _contributeManager Contribute Manager address.
+    /// @param _serviceRegistry Service Registry address.
+    /// @param _serviceRegistryTokenUtility Service Registry Token Utility address.
+    /// @param _drainer Drainer address.
+    /// @param _refundFactor Refund incentive factor.
     constructor(
         address _olas,
         address _contributeManager,
@@ -113,7 +120,9 @@ contract RecovererContributeManager {
         emit OwnerUpdated(newOwner);
     }
 
+    /// @dev Recovers bond amount for contributors.
     /// @notice The service must be unstaked from ContributorManager and terminated.
+    /// @param serviceId Service Id.
     function recover(uint256 serviceId) external {
         // Check if the refund was already made
         if (mapAccountRefunds[msg.sender]) {
