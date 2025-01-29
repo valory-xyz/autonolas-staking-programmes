@@ -67,4 +67,14 @@ contract ContributorsProxy {
             return(0, returndatasize())
         }
     }
+
+    /// @dev Gets implementation address.
+    function getImplementation() external view returns (address implementation) {
+        assembly {
+            implementation := sload(CONTRIBUTORS_PROXY)
+        }
+    }
+
+    /// @dev Receive.
+    receive() external payable {}
 }

@@ -117,8 +117,22 @@ interface IService {
     /// @return Operator address.
     function mapAgentInstanceOperators(address agentInstance) external view returns (address);
 
-    /// @dev Gets agent instance bonding / escrow balance by (operator address, serviceId) value.
-    /// @param operatorService Operator address + service Id.
-    /// @return Bonding balance.
-    function mapOperatorAndServiceIdOperatorBalances(uint256 operatorService) external view returns (uint256);
+    // Struct for a token address and a security deposit
+    struct TokenSecurityDeposit {
+        // Token address
+        address token;
+        // Bond per agent instance, enough for 79b+ or 7e28+
+        // We assume that the security deposit value will be bound by that value
+        uint96 securityDeposit;
+    }
+
+    /// @dev Gets service token address and security deposit.
+    /// @param serviceId Service Id.
+    function mapServiceIdTokenDeposit(uint256 serviceId) external returns (TokenSecurityDeposit memory);
+
+    /// @dev Gets the operator's balance in a specified service.
+    /// @param operator Operator address.
+    /// @param serviceId Service Id.
+    /// @return balance The balance of the operator.
+    function getOperatorBalance(address operator, uint256 serviceId) external view returns (uint256 balance);
 }

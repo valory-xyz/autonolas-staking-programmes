@@ -127,8 +127,8 @@ contract RecovererContributeManager {
         }
 
         // Check the multisig ownership
-        // Get the service multisig
-        (uint96 securityDeposit, address multisig, , , , uint32 numAgentInstances, IService.ServiceState state) =
+        // Get service multisig
+        (, address multisig, , , , uint32 numAgentInstances, IService.ServiceState state) =
             IService(serviceRegistry).mapServices(serviceId);
 
         // Check that the service multisig owner is msg.sender
@@ -143,14 +143,8 @@ contract RecovererContributeManager {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        // Push a pair of key defining variables into one key. Service Id or operator are not enough by themselves
-        // operator occupies first 160 bits
-        uint256 operatorService = uint256(uint160(contributeManager));
-        // serviceId occupies next 32 bits
-        operatorService |= serviceId << 160;
-
         // Check that operator balance has been slashed
-        if (IService(serviceRegistryTokenUtility).mapOperatorAndServiceIdOperatorBalances(operatorService) != 0) {
+        if (IService(serviceRegistryTokenUtility).getOperatorBalance(contributeManager, serviceId) != 0) {
             revert ServiceNotSlashed(serviceId);
         }
 
@@ -162,8 +156,11 @@ contract RecovererContributeManager {
         // Record refund has been made
         mapAccountRefunds[msg.sender] = true;
 
+        IService.TokenSecurityDeposit memory tokenSecurityDeposit =
+            IService(serviceRegistryTokenUtility).mapServiceIdTokenDeposit(serviceId);
+
         // Refund
-        uint256 refund = securityDeposit * refundFactor / 1e18;
+        uint256 refund = (tokenSecurityDeposit.securityDeposit * refundFactor) / 1e18;
         IToken(olas).transfer(msg.sender, refund);
 
         emit Refunded(msg.sender, refund);
