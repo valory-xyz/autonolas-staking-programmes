@@ -48,7 +48,7 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
 
     // Transaction signing and execution
-    console.log("12. EOA to set contribute agent statuses in ContributorsProxy");
+    console.log("10. EOA to set contribute agent statuses in ContributorsProxy");
     console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).setContributeAgentStatuses()");
     const result = await contributorsProxy.connect(EOA).setContributeServiceStatuses([contributeServiceAddress], [true], { gasPrice });
 
