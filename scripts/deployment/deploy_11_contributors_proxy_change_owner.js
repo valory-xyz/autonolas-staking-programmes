@@ -48,7 +48,7 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
 
     // Transaction signing and execution
-    console.log("13. EOA to change owner in ContributorsProxy");
+    console.log("11. EOA to change owner in ContributorsProxy");
     console.log("You are signing the following transaction: ContributorsProxy.connect(EOA).changeOwner()");
     const result = await contributorsProxy.connect(EOA).changeOwner(bridgeMediatorAddress, { gasPrice });
 

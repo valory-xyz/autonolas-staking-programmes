@@ -12,10 +12,10 @@ interface IMultisig {
 
 // Mech Marketplace interface
 interface IMechMarketplace {
-    /// @dev Gets the requests count for a specific account.
-    /// @param account Account address.
+    /// @dev Gets the requests count for a specific requester account.
+    /// @param requester Requester address.
     /// @return requestsCount Requests count.
-    function getRequestsCount(address account) external view returns (uint256 requestsCount);
+    function mapRequestCounts(address requester) external view returns (uint256 requestsCount);
 }
 
 /// @dev Provided zero address.
@@ -45,7 +45,7 @@ contract RequesterActivityChecker is StakingActivityChecker{
     function getMultisigNonces(address multisig) external view virtual override returns (uint256[] memory nonces) {
         nonces = new uint256[](2);
         nonces[0] = IMultisig(multisig).nonce();
-        nonces[1] = IMechMarketplace(mechMarketplace).getRequestsCount(multisig);
+        nonces[1] = IMechMarketplace(mechMarketplace).mapRequestCounts(multisig);
     }
 
     /// @dev Checks if the service multisig liveness ratio passes the defined liveness threshold.

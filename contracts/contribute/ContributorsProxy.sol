@@ -55,7 +55,7 @@ contract ContributorsProxy {
     }
 
     /// @dev Delegatecall to all the incoming data.
-    fallback() external {
+    fallback() external payable {
         assembly {
             let implementation := sload(CONTRIBUTORS_PROXY)
             calldatacopy(0, 0, calldatasize())
@@ -67,4 +67,14 @@ contract ContributorsProxy {
             return(0, returndatasize())
         }
     }
+
+    /// @dev Gets implementation address.
+    function getImplementation() external view returns (address implementation) {
+        assembly {
+            implementation := sload(CONTRIBUTORS_PROXY)
+        }
+    }
+
+    /// @dev Receive.
+    receive() external payable {}
 }
