@@ -326,7 +326,7 @@ describe("Staking Contribute", function () {
 
             // Try to change Safe contracts not by the owner
             await expect(
-                contributors.connect(signers[1]).changeSafeContracts(AddressZero, AddressZero, AddressZero)
+                contributors.connect(operator).changeSafeContracts(AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(contributors, "OwnerOnly");
 
             await contributors.changeSafeContracts(gnosisSafeMultisig.address, gnosisSafeSameAddressMultisig.address,
@@ -358,7 +358,7 @@ describe("Staking Contribute", function () {
 
             const balanceBefore = await token.balanceOf(deployer.address);
 
-            // Unstake the service with transferring the service beck to the contributor
+            // Unstake the service with transferring the service back to the contributor
             await contributors.unstake(true);
 
             const balanceAfter = await token.balanceOf(deployer.address);
@@ -384,8 +384,16 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
+            const balanceBefore = await token.balanceOf(deployer.address);
+
             // Unstake the service with transferring the service back to the contributor
             await contributors.unstake(true);
+
+            const balanceAfter = await token.balanceOf(deployer.address);
+
+            // Check returned token funds
+            const balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
 
             // Try to pull already pulled service
             await expect(
@@ -425,8 +433,16 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
+            let balanceBefore = await token.balanceOf(deployer.address);
+
             // Unstake the service without transferring the service back to the contributor
             await contributors.unstake(false);
+
+            let balanceAfter = await token.balanceOf(deployer.address);
+
+            // Check returned token funds
+            let balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
 
             // Try to re-stake without approved funds
             await expect(
@@ -442,8 +458,16 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
+            balanceBefore = await token.balanceOf(deployer.address);
+
             // Unstake the service without transferring the service back to the contributor
             await contributors.unstake(false);
+
+            balanceAfter = await token.balanceOf(deployer.address);
+
+            // Check returned token funds
+            balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
 
             // Pull the service
             await contributors.pullUnbondedService();
@@ -466,9 +490,9 @@ describe("Staking Contribute", function () {
             ).to.be.revertedWithCustomError(contributors, "WrongServiceState");
 
             // Register agent instance
-            await token.transfer(signers[1].address, serviceParams.minStakingDeposit);
-            await token.connect(signers[1]).approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
-            await serviceManager.connect(signers[1]).registerAgents(serviceId, [deployer.address], agentIds, {value: 1});
+            await token.transfer(operator.address, serviceParams.minStakingDeposit);
+            await token.connect(operator).approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
+            await serviceManager.connect(operator).registerAgents(serviceId, [deployer.address], agentIds, {value: 1});
 
             // Pack the original multisig address
             const data = ethers.utils.solidityPack(["address"], [multisigAddress]);
@@ -487,18 +511,33 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
+            balanceBefore = await token.balanceOf(deployer.address);
+
             // Unstake the service with transferring the service back to the contributor
             await contributors.unstake(true);
 
+            balanceAfter = await token.balanceOf(deployer.address);
+
+            // Check returned token funds: it's just one minStakingDeposit because the second one must be unbonded directly
+            balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit);
+
+            balanceBefore = await token.balanceOf(operator.address);
+            
             // Since operator of the service is not contributors contract, unbond it manually
-            await serviceManager.connect(signers[1]).unbond(serviceId);
+            await serviceManager.connect(operator).unbond(serviceId);
+
+            balanceAfter = await token.balanceOf(operator.address);
+            // Bond balance is returned to the operator
+            balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit);
 
             // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
             await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
             // Approve the service for the contributors
             await serviceRegistry.approve(contributors.address, serviceId);
 
-            // Stake the service again
+            // Stake the service again such that it's activated and registered by contributors
             await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
 
             // Check native balance of a contributors contract such that nothing is left on it
@@ -540,6 +579,10 @@ describe("Staking Contribute", function () {
             // The balance before and after the claim must be different
             expect(balanceAfter).to.gt(balanceBefore);
 
+            // Check native balance of a contributors contract such that nothing is left on it
+            const nativeBalance = await ethers.provider.getBalance(contributors.address);
+            expect(nativeBalance).to.equal(0);
+
             // Restore a previous state of blockchain
             snapshot.restore();
         });
@@ -567,6 +610,10 @@ describe("Staking Contribute", function () {
 
             // The service is currently evicted, re-stake (unstake and stake again)
             await contributors.reStake(stakingToken.address);
+
+            // Check native balance of a contributors contract such that nothing is left on it
+            const nativeBalance = await ethers.provider.getBalance(contributors.address);
+            expect(nativeBalance).to.equal(0);
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -654,8 +701,20 @@ describe("Staking Contribute", function () {
             // Call the checkpoint
             await nextStakingToken.checkpoint();
 
-            // Unstake the service
-            await contributors.unstake(true);
+            let balanceBefore = await token.balanceOf(deployer.address);
+
+            // Unstake the service with transferring the service back to the contributor
+            await contributors.unstake(false);
+
+            let balanceAfter = await token.balanceOf(deployer.address);
+
+            // Check returned token funds
+            let balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(testServiceParams.minStakingDeposit * 2);
+
+            // Check native balance of a contributors contract such that nothing is left on it
+            const nativeBalance = await ethers.provider.getBalance(contributors.address);
+            expect(nativeBalance).to.equal(0);
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -694,7 +753,7 @@ describe("Staking Contribute", function () {
             // Increase the time while the service does not reach the required amount of transactions per second (TPS)
             await helpers.time.increase(maxInactivity);
 
-            // Unstake the service with transferring the service beck to the contributor
+            // Unstake the service with transferring the service back to the contributor
             await contributors.unstake(true);
 
             // Try to unstake again
@@ -939,7 +998,7 @@ describe("Staking Contribute", function () {
 
             // Try to drain not by the owner
             await expect(
-                recoverer.connect(signers[1]).drain()
+                recoverer.connect(operator).drain()
             ).to.be.revertedWithCustomError(serviceRegistry, "OwnerOnly");
 
             // Drain the remainder of recoverer funds
