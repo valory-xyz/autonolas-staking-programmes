@@ -401,6 +401,10 @@ describe("Staking Contribute", function () {
             // Stake the service again
             await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
 
+            // Check native balance of a contributors contract such that nothing is left on it
+            const nativeBalance = await ethers.provider.getBalance(contributors.address);
+            expect(nativeBalance).to.equal(0);
+
             // Restore a previous state of blockchain
             snapshot.restore();
         });
@@ -496,6 +500,10 @@ describe("Staking Contribute", function () {
 
             // Stake the service again
             await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
+
+            // Check native balance of a contributors contract such that nothing is left on it
+            const nativeBalance = await ethers.provider.getBalance(contributors.address);
+            expect(nativeBalance).to.equal(0);
 
             // Restore a previous state of blockchain
             snapshot.restore();
