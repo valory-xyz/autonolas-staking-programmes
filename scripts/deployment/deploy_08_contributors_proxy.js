@@ -13,6 +13,9 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const contributorsAddress = parsedData.contributorsAddress;
+    const gnosisSafeMultisigImplementationAddress = parsedData.gnosisSafeMultisigImplementationAddress;
+    const gnosisSafeSameAddressMultisigImplementationAddress = parsedData.gnosisSafeSameAddressMultisigImplementationAddress;
+    const fallbackHandlerAddress = parsedData.fallbackHandlerAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -43,7 +46,8 @@ async function main() {
 
     // Assemble the contributors proxy data
     const contributors = await ethers.getContractAt("Contributors", contributorsAddress);
-    const proxyData = contributors.interface.encodeFunctionData("initialize", []);
+    const proxyData = contributors.interface.encodeFunctionData("initialize", [gnosisSafeMultisigImplementationAddress,
+        gnosisSafeSameAddressMultisigImplementationAddress, fallbackHandlerAddress]);
 
     // Transaction signing and execution
     console.log("8. EOA to deploy ContributorsProxy");
