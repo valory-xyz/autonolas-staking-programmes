@@ -12,6 +12,11 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
+    const serviceManagerTokenAddress = parsedData.serviceManagerTokenAddress;
+    const olasAddress = parsedData.olasAddress;
+    const stakingFactoryAddress = parsedData.stakingFactoryAddress;
+    const agentId = parsedData.agentId;
+    const configHash = parsedData.configHash;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -45,7 +50,8 @@ async function main() {
     console.log("You are signing the following transaction: Contributors.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const Contributors = await ethers.getContractFactory("Contributors");
-    const contributors = await Contributors.connect(EOA).deploy({ gasPrice });
+    const contributors = await Contributors.connect(EOA).deploy(serviceManagerTokenAddress, olasAddress,
+        stakingFactoryAddress, agentId, configHash, { gasPrice });
     const result = await contributors.deployed();
 
     // Transaction details
@@ -63,7 +69,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --network " + providerName + " " + contributors.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_07_contributors.js --network " + providerName + " " + contributors.address, { encoding: "utf-8" });
     }
 }
 

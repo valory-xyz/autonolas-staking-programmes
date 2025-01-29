@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {StakingActivityChecker} from "../../lib/autonolas-registries/contracts/staking/StakingActivityChecker.sol";
+import {StakingActivityChecker} from "../../../lib/autonolas-registries/contracts/staking/StakingActivityChecker.sol";
 
 // Multisig interface
 interface IMultisig {
@@ -10,33 +10,33 @@ interface IMultisig {
     function nonce() external view returns (uint256);
 }
 
-// Mech Marketplace interface
-interface IMechMarketplace {
-    /// @dev Gets the requests count for a specific requester account.
-    /// @param requester Requester address.
+// AgentMech interface
+interface IAgentMech {
+    /// @dev Gets the requests count for a specific account.
+    /// @param account Account address.
     /// @return requestsCount Requests count.
-    function mapRequestCounts(address requester) external view returns (uint256 requestsCount);
+    function getRequestsCount(address account) external view returns (uint256 requestsCount);
 }
 
-/// @dev Provided zero address.
-error ZeroAddress();
+/// @dev Provided zero mech agent address.
+error ZeroMechAgentAddress();
 
-/// @title RequesterActivityChecker - Smart contract for requester staking activity checking
+/// @title SingleMechActivityChecker - Smart contract for mech staking activity checking based on agent mech
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract RequesterActivityChecker is StakingActivityChecker{
-    // AI agent mech marketplace contract address.
-    address public immutable mechMarketplace;
+contract SingleMechActivityChecker is StakingActivityChecker{
+    // AI agent mech contract address.
+    address public immutable agentMech;
 
-    /// @dev RequesterActivityChecker constructor.
-    /// @param _mechMarketplace AI agent mech marketplace contract address.
+    /// @dev MechAgentMod constructor.
+    /// @param _agentMech AI agent mech contract address.
     /// @param _livenessRatio Liveness ratio in the format of 1e18.
-    constructor(address _mechMarketplace, uint256 _livenessRatio) StakingActivityChecker(_livenessRatio) {
-        if (_mechMarketplace == address(0)) {
-            revert ZeroAddress();
+    constructor(address _agentMech, uint256 _livenessRatio) StakingActivityChecker(_livenessRatio) {
+        if (_agentMech == address(0)) {
+            revert ZeroMechAgentAddress();
         }
-        mechMarketplace = _mechMarketplace;
+        agentMech = _agentMech;
     }
 
     /// @dev Gets service multisig nonces.
@@ -45,7 +45,7 @@ contract RequesterActivityChecker is StakingActivityChecker{
     function getMultisigNonces(address multisig) external view virtual override returns (uint256[] memory nonces) {
         nonces = new uint256[](2);
         nonces[0] = IMultisig(multisig).nonce();
-        nonces[1] = IMechMarketplace(mechMarketplace).mapRequestCounts(multisig);
+        nonces[1] = IAgentMech(agentMech).getRequestsCount(multisig);
     }
 
     /// @dev Checks if the service multisig liveness ratio passes the defined liveness threshold.

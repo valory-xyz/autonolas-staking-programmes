@@ -21,10 +21,20 @@ interface IToken {
     /// @param amount Token amount.
     /// @return True if the function execution is successful.
     function approve(address spender, uint256 amount) external returns (bool);
+
+    /// @dev Gets the amount of tokens owned by a specified account.
+    /// @param account Account address.
+    /// @return Amount of tokens owned.
+    function balanceOf(address account) external view returns (uint256);
 }
 
 // ERC721 token interface
 interface INFToken {
+    /// @dev Gets the owner of the token Id.
+    /// @param tokenId Token Id.
+    /// @return Token Id owner address.
+    function ownerOf(uint256 tokenId) external view returns (address);
+
     /// @dev Sets token `id` as the allowance of `spender` over the caller's tokens.
     /// @param spender Account address that will be able to transfer the token on behalf of the caller.
     /// @param id Token id.
