@@ -658,6 +658,4 @@ contract Contributors is ERC721TokenReceiver, IErrors {
 
         _locked = 1;
     }
-
-    receive() external payable {}
 }
