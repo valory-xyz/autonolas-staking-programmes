@@ -77,20 +77,19 @@ The audit is provided as development matures. The latest audit report can be fou
 title: Contribute Architecture
 ---
 flowchart LR
-    DAO -- changeManager --> ContributorsProxy
-    DAO -- setContributeServiceStatuses --> ContributorsProxy
-    DAO -- changeOwner --> ContributorsProxy
-    User -- createAndStake --> ContributeManager
-    User -- stake --> ContributeManager
-    User -- unstake --> ContributeManager
-    User -- claim --> ContributeManager
+    Deployer -- setContributeServiceStatuses --> ContributorsProxy
+    Deployer -- changeOwner --> ContributorsProxy
+    User -- createAndStake --> ContributorsProxy
+    User -- stake --> ContributorsProxy
+    User -- unstake --> ContributorsProxy
+    User -- claim --> ContributorsProxy
     ContributeService -- checkpoint --> StakingInstance -- getNonces --> ContributeActivityChecker
     User -- approve --> OLAS
-    ContributeManager -- create --> StakingRegistryL2
+    ContributorsProxy -- create --> StakingRegistryL2
     StakingRegistryL2 -- mint --> ERC721
-    ContributeManager -- stake --> StakingInstance
-    ContributeManager -- unstake --> StakingInstance
-    ContributeManager -- claim --> StakingInstance
+    ContributorsProxy -- stake --> StakingInstance
+    ContributorsProxy -- unstake --> StakingInstance
+    ContributorsProxy -- claim --> StakingInstance
     subgraph Service registry contracts
     StakingInstance
     StakingRegistryL2
@@ -98,7 +97,7 @@ flowchart LR
     subgraph Contribute contracts
     ContributeService -- increaseActivity --> ContributorsProxy
     ContributorsProxy -- delegatecall --> Contributors
-    ContributeManager -- setServiceInfoForId --> ContributorsProxy
+    ContributorsProxy -- setServiceInfoForId --> ContributorsProxy
     ContributeActivityChecker -- mapMutisigActivities --> ContributorsProxy
     end
 ```
