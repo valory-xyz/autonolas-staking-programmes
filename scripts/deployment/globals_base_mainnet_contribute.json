@@ -24,5 +24,6 @@
   "contributorsProxyAddress":"0x343F2B005cF6D70bA610CD9F1F1927049414B582",
   "contributeServiceAddress":"0x3316b59A6c4C3ee2920EecE0B02A6d40AAa6b9c9",
   "contributeManagerAddress":"0xaea9ef993d8a1A164397642648DF43F053d43D85",
-  "refundFactor":"1300000000000000000"
+  "refundFactor":"1300000000000000000",
+  "recovererContributeManagerAddress":"0x820ca542d5876FDEf240584F6f3924852D527FED"
 }
