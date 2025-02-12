@@ -32,7 +32,7 @@
       "configHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
       "proxyHash":"0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
       "serviceRegistry":"0x9338b5153AE39BB89f50468E608eD9d764B755fD",
-      "activityChecker":""
+      "activityChecker":"0xe71eB24a7F9aE6C4E40A94825C0Df27113CEc74F"
     },
   "stakingTokenInstanceAddress":"0xab21BcE7ae5443FcBfAf29a4E2B9B398F510f9e9"
 }
