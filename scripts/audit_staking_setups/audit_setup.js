@@ -58,12 +58,17 @@ async function main() {
             const log = "Contract " + stakingTokenAddress + ", chain: " + params["providerName"]
             const metadataHash = await stakingToken.metadataHash();
             customExpect(metadataHash, params["stakingParams"]["metadataHash"], log + ", metadataHash");
-            const maxNumServices = await stakingToken.maxNumServices();
-            customExpect(maxNumServices, params["stakingParams"]["maxNumServices"], log + ", maxNumServices");
-            const rewardsPerSecond = await stakingToken.rewardsPerSecond();
-            customExpect(rewardsPerSecond, params["stakingParams"]["rewardsPerSecond"], log + ", rewardsPerSecond");
             const minStakingDeposit = await stakingToken.minStakingDeposit();
             customExpect(minStakingDeposit, params["stakingParams"]["minStakingDeposit"], log + ", minStakingDeposit");
+
+            const rewardsPerSecond = await stakingToken.rewardsPerSecond();
+            customExpect(rewardsPerSecond, params["stakingParams"]["rewardsPerSecond"], log + ", rewardsPerSecond");
+            const maxNumServices = await stakingToken.maxNumServices();
+            customExpect(maxNumServices, params["stakingParams"]["maxNumServices"], log + ", maxNumServices");
+            const timeForEmissions = await stakingToken.timeForEmissions();
+            customExpect(timeForEmissions, params["stakingParams"]["timeForEmissions"], log + ", timeForEmissions");
+            const emissionsAmount = rewardsPerSecond.mul(maxNumServices).mul(timeForEmissions);
+            expect(emissionsAmount).lte(dispenserLimit);
 
             const livenessPeriod = await stakingToken.livenessPeriod();
             customExpect(livenessPeriod, params["stakingParams"]["livenessPeriod"], log + ", livenessPeriod");
@@ -74,9 +79,6 @@ async function main() {
             const maxInactivityDuration = await stakingToken.maxInactivityDuration();
             customExpect(maxInactivityDuration, maxNumInactivityPeriods * livenessPeriod, log + ", maxInactivityDuration");
 
-
-            const timeForEmissions = await stakingToken.timeForEmissions();
-            customExpect(timeForEmissions, params["stakingParams"]["timeForEmissions"], log + ", timeForEmissions");
             const numAgentInstances = await stakingToken.numAgentInstances();
             customExpect(numAgentInstances, params["stakingParams"]["numAgentInstances"], log + ", numAgentInstances");
             const agentId = await stakingToken.agentIds(0);
@@ -95,6 +97,12 @@ async function main() {
             const activityChecker = await ethers.getContractAt("RequesterActivityChecker", activityCheckerAddress, wallet);
             const livenessRatio = await activityChecker.livenessRatio();
             customExpect(livenessRatio, params["livenessRatio"], log + ", livenessRatio");
+        } else {
+            const rewardsPerSecond = ethers.BigNumber.from(params["stakingParams"]["rewardsPerSecond"]);
+            const maxNumServices = ethers.BigNumber.from(params["stakingParams"]["maxNumServices"]);
+            const timeForEmissions = ethers.BigNumber.from(params["stakingParams"]["timeForEmissions"]);
+            const emissionsAmount = rewardsPerSecond.mul(maxNumServices).mul(timeForEmissions);
+            expect(emissionsAmount).lte(dispenserLimit);
         }
     }
 }
