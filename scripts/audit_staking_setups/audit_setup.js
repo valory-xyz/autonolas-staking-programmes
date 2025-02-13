@@ -55,7 +55,7 @@ async function main() {
             const wallet = new ethers.Wallet(account, provider);
             const stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress, wallet);
 
-            const log = "Contract " + stakingTokenAddress + ", chain: " + params["providerName"]
+            const log = "Contract " + stakingTokenAddress + ", chain: " + params["providerName"];
             const metadataHash = await stakingToken.metadataHash();
             customExpect(metadataHash, params["stakingParams"]["metadataHash"], log + ", metadataHash");
             const minStakingDeposit = await stakingToken.minStakingDeposit();
