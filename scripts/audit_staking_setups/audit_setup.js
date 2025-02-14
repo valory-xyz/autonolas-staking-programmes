@@ -32,6 +32,14 @@ async function main() {
         crlfDelay: Infinity
     });
 
+    const execSync = require("child_process").execSync;
+    try {
+        execSync("scripts/audit_staking_setups/run.sh");
+    } catch (error) {
+        console.log("Error in running files search script");
+        return;
+    }
+
     // Traverse globals configs and check the data
     for await (const configFile of rl) {
         const dataFromJSON = fs.readFileSync(configFile, "utf8");
