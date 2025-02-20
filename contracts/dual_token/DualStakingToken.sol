@@ -195,7 +195,7 @@ contract DualStakingToken {
 
             uint256 curServiceId;
             // If total allocated rewards are not enough, adjust the reward value
-            if (totalRewards > lastAvailableRewards) {
+            if ((totalRewards * rewardRatio) / 1e18 > lastAvailableRewards) {
                 // Traverse all the eligible services and adjust their rewards proportional to leftovers
                 // Note the algorithm is the exact copy of StakingBase logic
                 uint256 updatedReward;
