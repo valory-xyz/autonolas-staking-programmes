@@ -13,6 +13,14 @@ interface IStaking {
     /// @return Activity checker address.
     function activityChecker() external view returns (address);
 
+    /// @dev Gets minimum service staking deposit value required for staking.
+    /// @return Minimum service staking deposit.
+    function minStakingDeposit() external view returns (uint256);
+
+    /// @dev Gets number of agent instances in the service.
+    /// @return Number of agent instances.
+    function numAgentInstances() external view returns (uint256);
+
     /// @dev Stakes the service.
     /// @param serviceId Service Id.
     function stake(uint256 serviceId) external;
