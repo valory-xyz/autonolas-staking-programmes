@@ -353,7 +353,7 @@ contract DualStakingToken {
         }
 
         // Check for unstaked service state
-        if (stakingState == IStaking.StakingState.Staked) {
+        if (stakingState != IStaking.StakingState.Unstaked) {
             // Unstake OLAS service
             IStaking(stakingInstance).unstake(serviceId);
 
