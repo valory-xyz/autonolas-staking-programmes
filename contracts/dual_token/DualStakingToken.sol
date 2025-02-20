@@ -314,6 +314,35 @@ contract DualStakingToken {
         _withdraw(multisig, reward);
     }
 
+    /// @dev Claims OLAS staking token rewards.
+    /// @param serviceId OLAS driven service Id.
+    function claim(uint256 serviceId) external {
+        StakerInfo storage stakerInfo = mapStakerStakerInfos[serviceId];
+        // Check for staker existence
+        if (stakerInfo.account == address(0)) {
+            revert();
+        }
+
+        // Get staking instance
+        address stakingInstance = stakerInfo.stakingInstance;
+
+        // Perform checkpoint first as there might be more rewards
+        checkpoint(stakingInstance);
+
+        // Get reward
+        uint256 reward = stakerInfo.reward;
+
+        // Get service multisig
+        (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
+
+        // Claim OLAS
+        IStaking(stakingInstance).claim(serviceId);
+
+        // TODO Reward is sent to the service multisig or staker account?
+        // Transfer staking token reward to the service multisig
+        _withdraw(multisig, reward);
+    }
+
     /// @dev Deposits funds for dual staking.
     /// @param amount Token amount to deposit.
     function deposit(uint256 amount) external {
