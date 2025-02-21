@@ -14,3 +14,7 @@ contracts is located in this folder: [internal audit 1](https://github.com/valor
 An internal audit with a focus on fixing contribute contracts
 contracts is located in this folder: [internal audit 2](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal2).
 
+### Internal audit
+An internal audit with a focus on dual token contracts
+contracts is located in this folder: [internal audit 3](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal3).
+
