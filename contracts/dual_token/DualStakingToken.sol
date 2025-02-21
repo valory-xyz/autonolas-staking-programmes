@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
@@ -40,7 +41,7 @@ struct StakerInfo {
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract DualStakingToken {
+contract DualStakingToken is ERC721TokenReceiver {
     event OwnerUpdated(address indexed owner);
     event StakingTokenParamsUpdated(uint256 secondTokenAmount, uint256 rewardRatio);
     event Deposit(address indexed sender, uint256 amount, uint256 balance, uint256 availableRewards);
