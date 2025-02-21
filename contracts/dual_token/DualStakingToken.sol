@@ -126,6 +126,10 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
         _locked = 2;
 
+        if (availableRewards == 0) {
+            revert ZeroValue();
+        }
+
         StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
         // Check for existing staker
         if (stakerInfo.account != address(0)) {
@@ -176,8 +180,8 @@ contract DualStakingToken is ERC721TokenReceiver {
         // Process rewards
         // If there are eligible services, calculate and update second token rewards
         uint256 numServices = eligibleServiceIds.length;
-        if (numServices > 0) {
-            uint256 lastAvailableRewards = availableRewards;
+        uint256 lastAvailableRewards = availableRewards;
+        if (numServices > 0 && lastAvailableRewards > 0) {
             uint256 totalRewards;
             for (uint256 i = 0; i < numServices; ++i) {
                 totalRewards += eligibleServiceRewards[i];
