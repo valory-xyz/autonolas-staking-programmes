@@ -24,6 +24,9 @@ error ZeroValue();
 /// @param owner Required sender address as an owner.
 error OwnerOnly(address sender, address owner);
 
+/// @dev Caught reentrancy violation.
+error ReentrancyGuard();
+
 struct StakerInfo {
     // Staking token amount
     uint256 stakingAmount;
@@ -31,8 +34,6 @@ struct StakerInfo {
     uint256 reward;
     // Staker account address
     address account;
-    // Service staking instance address
-    address stakingInstance;
 }
 
 /// @title DualStakingToken - Smart contract for dual token staking
@@ -45,10 +46,12 @@ contract DualStakingToken {
     event Deposit(address indexed sender, uint256 amount, uint256 balance, uint256 availableRewards);
     event Withdraw(address indexed to, uint256 amount);
 
-    // Staking token address (except for OLAS)
-    address public immutable stakingToken;
     // Service registry address
     address public immutable serviceRegistry;
+    // Staking token address (except for OLAS)
+    address public immutable stakingToken;
+    // Service staking instance address
+    address public immutable stakingInstance;
 
     // Required staking token amount
     uint256 public stakingTokenAmount;
@@ -61,32 +64,46 @@ contract DualStakingToken {
     // Owner address
     address public owner;
 
+    // Reentrancy lock
+    uint256 internal _locked = 1;
+
     // Mapping of staker account address => Staker info struct
-    mapping(uint256 => StakerInfo) public mapStakerStakerInfos;
+    mapping(uint256 => StakerInfo) public mapStakerInfos;
     /// Mapping of staked OLAS service multisigs
     mapping(address => bool) public mapMutisigs;
 
     /// @dev DualStakingToken constructor.
     /// @param _serviceRegistry Service registry address.
     /// @param _stakingToken Staking token address.
-    /// @param _stakingTokenAmount Staking token amount.
+    /// @param _stakingInstance Service staking instance address.
     /// @param _rewardRatio Staking token ratio to OLAS rewards in 1e18 form.
-    constructor(address _serviceRegistry, address _stakingToken, uint256 _stakingTokenAmount, uint256 _rewardRatio) {
+    constructor(
+        address _serviceRegistry,
+        address _stakingToken,
+        address _stakingInstance,
+        uint256 _rewardRatio
+    ) {
         // Check for zero addresses
-        if (_serviceRegistry == address(0) || _stakingToken == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingToken == address(0) || _stakingInstance == address(0)) {
             revert ZeroAddress();
         }
 
         // Check for zero values
-        if (_stakingTokenAmount == 0 || _rewardRatio == 0) {
+        if (_rewardRatio == 0) {
             revert ZeroValue();
         }
 
         serviceRegistry = _serviceRegistry;
         stakingToken = _stakingToken;
+        stakingInstance = _stakingInstance;
 
-        stakingTokenAmount = _stakingTokenAmount;
         rewardRatio = _rewardRatio;
+
+        // Calculate staking token amount based on staking instance service information
+        uint256 numAgentInstances = IStaking(_stakingInstance).numAgentInstances();
+        uint256 minStakingDeposit = IStaking(_stakingInstance).minStakingDeposit();
+        // Total service deposit = minStakingDeposit + minStakingDeposit * numAgentInstances
+        stakingTokenAmount = (minStakingDeposit * (1 + numAgentInstances) * _rewardRatio) / 1e18;
 
         owner = msg.sender;
     }
@@ -121,6 +138,9 @@ contract DualStakingToken {
         emit OwnerUpdated(newOwner);
     }
 
+    /// @dev Changes staking token params.
+    /// @param newStakingTokenAmount New staking token amount.
+    /// @param newRewardRatio New staking token ratio to OLAS rewards in 1e18 form.
     function changeStakingTokenParams(uint256 newStakingTokenAmount, uint256 newRewardRatio) external {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -140,9 +160,14 @@ contract DualStakingToken {
 
     /// @dev Stakes OLAS service Id and required staking token amount.
     /// @param serviceId OLAS driven service Id.
-    /// @param stakingInstance Staking instance address.
-    function stake(uint256 serviceId, address stakingInstance) external {
-        StakerInfo storage stakerInfo = mapStakerStakerInfos[serviceId];
+    function stake(uint256 serviceId) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
         // Check for existing staker
         if (stakerInfo.account != address(0)) {
             revert();
@@ -153,7 +178,6 @@ contract DualStakingToken {
         // Record staker info values
         stakerInfo.account = msg.sender;
         stakerInfo.stakingAmount = amount;
-        stakerInfo.stakingInstance = stakingInstance;
 
         // Get service multisig
         (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
@@ -168,11 +192,18 @@ contract DualStakingToken {
         IService(serviceRegistry).approve(stakingInstance, serviceId);
         // Stake service
         IStaking(stakingInstance).stake(serviceId);
+
+        _locked = 1;
     }
 
     /// @dev Checkpoint to allocate rewards up until current time.
-    /// @param stakingInstance Staking instance address.
-    function checkpoint(address stakingInstance) public {
+    function checkpoint() public {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Get activity checker address
         address activityChecker = IStaking(stakingInstance).activityChecker();
 
@@ -208,7 +239,7 @@ contract DualStakingToken {
 
                     curServiceId = eligibleServiceIds[i];
                     // Add reward to the overall service reward
-                    mapStakerStakerInfos[curServiceId].reward += (updatedReward * rewardRatio) / 1e18;
+                    mapStakerInfos[curServiceId].reward += (updatedReward * rewardRatio) / 1e18;
                 }
 
                 // Process the first service in the set
@@ -220,7 +251,7 @@ contract DualStakingToken {
                     updatedReward += lastAvailableRewards - updatedTotalRewards;
                 }
                 // Add reward to the overall service reward
-                mapStakerStakerInfos[curServiceId].reward += (updatedReward * rewardRatio) / 1e18;
+                mapStakerInfos[curServiceId].reward += (updatedReward * rewardRatio) / 1e18;
                 // Set available rewards to zero
                 lastAvailableRewards = 0;
             } else {
@@ -228,7 +259,7 @@ contract DualStakingToken {
                 for (uint256 i = 0; i < numServices; ++i) {
                     // Add reward to the service overall reward
                     curServiceId = eligibleServiceIds[i];
-                    mapStakerStakerInfos[curServiceId].reward += (eligibleServiceRewards[i] * rewardRatio) / 1e18;
+                    mapStakerInfos[curServiceId].reward += (eligibleServiceRewards[i] * rewardRatio) / 1e18;
                 }
 
                 // Adjust available rewards
@@ -241,22 +272,24 @@ contract DualStakingToken {
 
         // Lock activity checker after checkpoint
         IActivityChecker(activityChecker).lock();
+
+        _locked = 1;
     }
 
     /// @dev Re-stakes OLAS service Id as it has been evicted.
     /// @param serviceId OLAS driven service Id.
     function restake(uint256 serviceId) external {
-        StakerInfo storage stakerInfo = mapStakerStakerInfos[serviceId];
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
         // Check for staker existence
         if (stakerInfo.account == address(0)) {
             revert();
         }
-
-        // Get staking instance address
-        address stakingInstance = stakerInfo.stakingInstance;
-
-        // Perform checkpoint first as there might be more rewards
-        checkpoint(stakingInstance);
 
         // Get staked service state
         IStaking.StakingState stakingState = IStaking(stakingInstance).getStakingState(serviceId);
@@ -271,22 +304,32 @@ contract DualStakingToken {
         IService(serviceRegistry).approve(stakingInstance, serviceId);
         // Stake service
         IStaking(stakingInstance).stake(serviceId);
+
+        _locked = 1;
     }
 
     /// @dev Unstakes OLAS service Id and unbonds staking token amount.
     /// @param serviceId OLAS driven service Id.
     function unstake(uint256 serviceId) external {
-        StakerInfo storage stakerInfo = mapStakerStakerInfos[serviceId];
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
         // Check for staker existence
         if (stakerInfo.account == address(0)) {
             revert();
         }
 
-        // Get staking instance
-        address stakingInstance = stakerInfo.stakingInstance;
+        // Get staked service state
+        IStaking.StakingState stakingState = IStaking(stakingInstance).getStakingState(serviceId);
 
-        // Perform checkpoint first as there might be more rewards
-        checkpoint(stakingInstance);
+        // Perform checkpoint first as there might be more rewards, only if the service is still staked
+        if (stakingState == IStaking.StakingState.Staked) {
+            checkpoint();
+        }
 
         // Get staker info
         address account = stakerInfo.account;
@@ -297,37 +340,47 @@ contract DualStakingToken {
         (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
         // Clear staker maps
-        delete mapStakerStakerInfos[serviceId];
+        delete mapStakerInfos[serviceId];
         delete mapMutisigs[multisig];
-
-        // Unstake OLAS service
-        IStaking(stakingInstance).unstake(serviceId);
-
-        // Transfer service to the original owner
-        IService(serviceRegistry).transferFrom(address(this), account, serviceId);
 
         // Transfer staking token amount back to the staker
         _withdraw(account, stakingAmount);
 
         // TODO Reward is sent to the service multisig or staker account?
         // Transfer staking token reward to the service multisig
-        _withdraw(multisig, reward);
+        if (reward > 0) {
+            _withdraw(multisig, reward);
+        }
+
+        // Check for unstaked service state
+        if (stakingState != IStaking.StakingState.Unstaked) {
+            // Unstake OLAS service
+            IStaking(stakingInstance).unstake(serviceId);
+
+            // Transfer service to the original owner
+            IService(serviceRegistry).transferFrom(address(this), account, serviceId);
+        }
+
+        _locked = 1;
     }
 
-    /// @dev Claims OLAS staking token rewards.
+    /// @dev Claims OLAS and staking token rewards.
     /// @param serviceId OLAS driven service Id.
     function claim(uint256 serviceId) external {
-        StakerInfo storage stakerInfo = mapStakerStakerInfos[serviceId];
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
         // Check for staker existence
         if (stakerInfo.account == address(0)) {
             revert();
         }
 
-        // Get staking instance
-        address stakingInstance = stakerInfo.stakingInstance;
-
         // Perform checkpoint first as there might be more rewards
-        checkpoint(stakingInstance);
+        checkpoint();
 
         // Get reward
         uint256 reward = stakerInfo.reward;
@@ -335,17 +388,27 @@ contract DualStakingToken {
         // Get service multisig
         (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
+        // TODO Reward is sent to the service multisig or staker account?
+        // Transfer staking token reward to the service multisig
+        if (reward > 0) {
+            _withdraw(multisig, reward);
+        }
+
         // Claim OLAS
         IStaking(stakingInstance).claim(serviceId);
 
-        // TODO Reward is sent to the service multisig or staker account?
-        // Transfer staking token reward to the service multisig
-        _withdraw(multisig, reward);
+        _locked = 1;
     }
 
     /// @dev Deposits funds for dual staking.
     /// @param amount Token amount to deposit.
     function deposit(uint256 amount) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Add to the contract and available rewards balances
         uint256 newBalance = balance + amount;
         uint256 newAvailableRewards = availableRewards + amount;
@@ -358,5 +421,7 @@ contract DualStakingToken {
         SafeTransferLib.safeTransferFrom(stakingToken, msg.sender, address(this), amount);
 
         emit Deposit(msg.sender, amount, newBalance, newAvailableRewards);
+
+        _locked = 1;
     }
 }
