@@ -90,7 +90,7 @@ contract DualStakingTokenActivityChecker {
     /// @dev Gets service multisig nonces.
     /// @param multisig Service multisig address.
     /// @return nonces Set of a single service multisig nonce.
-    function getMultisigNonces(address multisig) external view virtual returns (uint256[] memory nonces) {
+    function getMultisigNonces(address multisig) external view returns (uint256[] memory nonces) {
         // Check for token duality
         // This check prevents from staking directly to service staking contract without locking the staking token as well
         if (!IDualStakingToken(dualStakingToken).mapMutisigs(multisig)) {
@@ -135,7 +135,7 @@ contract DualStakingTokenActivityChecker {
         uint256[] memory curNonces,
         uint256[] memory lastNonces,
         uint256 ts
-    ) external view virtual returns (bool ratioPass) {
+    ) external view returns (bool ratioPass) {
         // Check for lock
         // This lock prevents checkpoint being called directly from service staking contract
         if (_locked == 2) {
