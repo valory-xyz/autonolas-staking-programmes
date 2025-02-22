@@ -37,7 +37,8 @@ error WrongStakingState(uint256 serviceId, IStaking.StakingState state);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
-/// @title DualStakingToken - Smart contract for dual token staking
+/// @title DualStakingToken - Smart contract for dual token staking: it accepts OLAS-based service NFT
+///        and a deposit of defined second token that is proportionally calculated to OLAS service stake amount
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
@@ -72,7 +73,7 @@ contract DualStakingToken is ERC721TokenReceiver {
 
     /// @dev DualStakingToken constructor.
     /// @param _serviceRegistry Service registry address.
-    /// @param _secondToken Second token address.
+    /// @param _secondToken Second token address that is deposited along with OLAS-based service.
     /// @param _stakingInstance Service staking instance address.
     /// @param _rewardRatio Second token ratio to OLAS rewards in 1e18 form.
     constructor(
@@ -198,6 +199,8 @@ contract DualStakingToken is ERC721TokenReceiver {
     }
 
     /// @dev Re-stakes OLAS service Id as it has been evicted.
+    /// @notice The restake can only take place if the service is evicted in the original stakingInstance contract,
+    ///         otherwise it will revert. Another alternative is to call the unstake, then stake from scratch.
     /// @param serviceId OLAS driven service Id.
     function restake(uint256 serviceId) external {
         // Reentrancy guard
