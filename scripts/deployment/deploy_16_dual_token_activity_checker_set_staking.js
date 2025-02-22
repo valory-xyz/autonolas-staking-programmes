@@ -12,7 +12,7 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const dualStakingTokenActivityCheckerAddress = parsedData.dualStakingTokenActivityCheckerAddress
+    const dualStakingTokenActivityCheckerAddress = parsedData.dualStakingTokenActivityCheckerAddress;
     const dualStakingTokenAddress = parsedData.dualStakingTokenAddress;
 
     let networkURL = parsedData.networkURL;

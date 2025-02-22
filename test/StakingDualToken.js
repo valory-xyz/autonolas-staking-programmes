@@ -30,8 +30,6 @@ describe("Staking Dual Token", function () {
     const regDeposit = 1000;
     const regBond = 1000;
     const serviceId = 1;
-    const agentId = 1;
-    let socialId = 1;
     const agentIds = [1];
     const agentParams = [[1, regBond]];
     const threshold = 1;
