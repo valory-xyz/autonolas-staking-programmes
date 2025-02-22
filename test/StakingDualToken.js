@@ -183,6 +183,18 @@ describe("Staking Dual Token", function () {
 
     context("Staking management", function () {
         it.only("Stake and get rewards", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Try to stake with zero second token funds
+            await expect(
+                dualStakingToken.stake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
+
+            // Fund dualStakingToken contract
+            await secondToken.approve(dualStakingToken.address, ethers.utils.parseEther("1"));
+            await dualStakingToken.deposit(ethers.utils.parseEther("1"));
+
             // Approve service for dual staking token
             await serviceRegistry.approve(dualStakingToken.address, serviceId);
 
@@ -194,6 +206,17 @@ describe("Staking Dual Token", function () {
 
             // Stake service + token
             await dualStakingToken.stake(serviceId);
+
+            // Increase the time until the next staking epoch
+            await helpers.time.increase(livenessPeriod + 100);
+
+            // Try to call checkpoint directly from the staking contract
+            await //expect(
+                stakingToken.checkpoint()
+            //).to.be.revertedWithCustomError(dualTokenActivityChecker, "Locked");
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
         });
 
         it("Mint, stake, unstake", async function () {

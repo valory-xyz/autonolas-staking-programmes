@@ -25,7 +25,7 @@ error ZeroAddress();
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract RequesterActivityChecker is StakingActivityChecker{
+contract RequesterActivityChecker is StakingActivityChecker {
     // AI agent mech marketplace contract address.
     address public immutable mechMarketplace;
 

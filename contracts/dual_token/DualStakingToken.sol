@@ -6,12 +6,12 @@ import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
 
-interface IActivityChecker {
-    /// @dev Locks activity checker.
-    function lock() external;
-
-    /// @dev Unlocks activity checker.
-    function unlock() external;
+// ERC20 token interface
+interface IToken {
+    /// @dev Gets the amount of tokens owned by a specified account.
+    /// @param account Account address.
+    /// @return Amount of tokens owned.
+    function balanceOf(address account) external view returns (uint256);
 }
 
 /// @dev Zero address.
@@ -20,32 +20,32 @@ error ZeroAddress();
 /// @dev Zero value.
 error ZeroValue();
 
-/// @dev Only `owner` has a privilege, but the `sender` was provided.
+/// @dev Only `staker` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
-/// @param owner Required sender address as an owner.
-error OwnerOnly(address sender, address owner);
+/// @param staker Required staker address.
+error StakerOnly(address sender, address staker);
+
+/// @dev Service is already staked.
+/// @param serviceId Service Id.
+error AlreadyStaked(uint256 serviceId);
+
+/// @dev Wrong service state.
+/// @param serviceId Service Id.
+/// @param state Service state.
+error WrongServiceState(uint256 serviceId, IStaking.StakingState state);
 
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
-
-struct StakerInfo {
-    // Second token amount
-    uint256 stakingAmount;
-    // Cumulative reward
-    uint256 reward;
-    // Staker account address
-    address account;
-}
 
 /// @title DualStakingToken - Smart contract for dual token staking
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract DualStakingToken is ERC721TokenReceiver {
-    event OwnerUpdated(address indexed owner);
-    event StakingTokenParamsUpdated(uint256 secondTokenAmount, uint256 rewardRatio);
     event Deposit(address indexed sender, uint256 amount, uint256 balance, uint256 availableRewards);
     event Withdraw(address indexed to, uint256 amount);
+    event Claimed(uint256 indexed serviceId, uint256 reward);
+    event Unstaked(uint256 indexed serviceId);
 
     // Service registry address
     address public immutable serviceRegistry;
@@ -58,16 +58,14 @@ contract DualStakingToken is ERC721TokenReceiver {
     // Second token ratio to OLAS rewards in 1e18 form
     uint256 public immutable rewardRatio;
 
-    // Second token contract balance
-    uint256 public balance;
-    // Second token available rewards
-    uint256 public availableRewards;
+    // Number of staked services
+    uint256 numServices;
 
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Mapping of staker account address => Staker info struct
-    mapping(uint256 => StakerInfo) public mapStakerInfos;
+    // Mapping of service Id => staker account address
+    mapping(uint256 => address) public mapServiceIdStakers;
     /// Mapping of staked OLAS service multisigs
     mapping(address => bool) public mapMutisigs;
 
@@ -104,14 +102,31 @@ contract DualStakingToken is ERC721TokenReceiver {
         secondTokenAmount = (minStakingDeposit * (1 + numAgentInstances) * _rewardRatio) / 1e18;
     }
 
+    /// @dev Claims second token reward.
+    /// @param multisig Service multisig address.
+    /// @param reward Second token non-zero reward.
+    function _claim(address multisig, uint256 reward) internal {
+        // Recalculate reward in second token value
+        reward = (reward * rewardRatio) / 1e18;
+
+        // Transfer second token reward to the service multisig
+        // Get second token balance, reserving the staked amount untouched
+        uint256 balance = IToken(secondToken).balanceOf(address(this)) - secondTokenAmount * numServices;
+
+        // Limit reward if there is not enough on a balance
+        if (reward > balance) {
+            reward = balance;
+        }
+
+        // Withdraw reward to service multisig
+        _withdraw(multisig, reward);
+    }
+
     /// @dev Withdraws the reward amount to a service owner.
     /// @notice The balance is always greater or equal the amount, as follows from the Base contract logic.
     /// @param to Address to.
     /// @param amount Amount to withdraw.
     function _withdraw(address to, uint256 amount) internal {
-        // Update the contract balance
-        balance -= amount;
-
         SafeTransferLib.safeTransfer(secondToken, to, amount);
 
         emit Withdraw(to, amount);
@@ -126,29 +141,35 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
         _locked = 2;
 
-        if (availableRewards == 0) {
+        // Get second token balance, reserving the staked amount untouched
+        uint256 balance = IToken(secondToken).balanceOf(address(this)) - secondTokenAmount * numServices;
+        // Check for zero available rewards
+        if (balance == 0) {
             revert ZeroValue();
         }
 
-        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
+        address staker = mapServiceIdStakers[serviceId];
         // Check for existing staker
-        if (stakerInfo.account != address(0)) {
-            revert();
+        if (staker != address(0)) {
+            revert AlreadyStaked(serviceId);
         }
-
-        uint256 amount = secondTokenAmount;
-
-        // Record staker info values
-        stakerInfo.account = msg.sender;
-        stakerInfo.stakingAmount = amount;
 
         // Get service multisig
         (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
+        // Record staker info values
+        mapServiceIdStakers[serviceId] = msg.sender;
+
+        // Record service multisig as being active in this staking contract
         mapMutisigs[multisig] = true;
 
-        SafeTransferLib.safeTransferFrom(secondToken, msg.sender, address(this), amount);
+        // Increase global number of services
+        numServices++;
 
+        // Get second token stake amount
+        SafeTransferLib.safeTransferFrom(secondToken, msg.sender, address(this), secondTokenAmount);
+
+        // Get service for staking
         IService(serviceRegistry).safeTransferFrom(msg.sender, address(this), serviceId);
 
         // Approve service for staking instance
@@ -160,81 +181,15 @@ contract DualStakingToken is ERC721TokenReceiver {
     }
 
     /// @dev Checkpoint to allocate rewards up until current time.
-    function checkpoint() public {
+    function checkpoint() external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        // Get activity checker address
-        address activityChecker = IStaking(stakingInstance).activityChecker();
-
-        // Unlock activity checker while performing checkpoint
-        IActivityChecker(activityChecker).unlock();
-
         // Service staking checkpoint
-        (, uint256[] memory eligibleServiceIds, uint256[] memory eligibleServiceRewards, ) =
-            IStaking(stakingInstance).checkpoint();
-
-        // Process rewards
-        // If there are eligible services, calculate and update second token rewards
-        uint256 numServices = eligibleServiceIds.length;
-        uint256 lastAvailableRewards = availableRewards;
-        if (numServices > 0 && lastAvailableRewards > 0) {
-            uint256 totalRewards;
-            for (uint256 i = 0; i < numServices; ++i) {
-                totalRewards += eligibleServiceRewards[i];
-            }
-
-            uint256 curServiceId;
-            // If total allocated rewards are not enough, adjust the reward value
-            if ((totalRewards * rewardRatio) / 1e18 > lastAvailableRewards) {
-                // Traverse all the eligible services and adjust their rewards proportional to leftovers
-                // Note the algorithm is the exact copy of StakingBase logic
-                uint256 updatedReward;
-                uint256 updatedTotalRewards;
-                for (uint256 i = 1; i < numServices; ++i) {
-                    // Calculate the updated reward
-                    updatedReward = (eligibleServiceRewards[i] * lastAvailableRewards) / totalRewards;
-                    // Add to the total updated reward
-                    updatedTotalRewards += updatedReward;
-
-                    curServiceId = eligibleServiceIds[i];
-                    // Add reward to the overall service reward
-                    mapStakerInfos[curServiceId].reward += (updatedReward * rewardRatio) / 1e18;
-                }
-
-                // Process the first service in the set
-                updatedReward = (eligibleServiceRewards[0] * lastAvailableRewards) / totalRewards;
-                updatedTotalRewards += updatedReward;
-                curServiceId = eligibleServiceIds[0];
-                // If the reward adjustment happened to have small leftovers, add it to the first service
-                if (lastAvailableRewards > updatedTotalRewards) {
-                    updatedReward += lastAvailableRewards - updatedTotalRewards;
-                }
-                // Add reward to the overall service reward
-                mapStakerInfos[curServiceId].reward += (updatedReward * rewardRatio) / 1e18;
-                // Set available rewards to zero
-                lastAvailableRewards = 0;
-            } else {
-                // Traverse all the eligible services and add to their rewards
-                for (uint256 i = 0; i < numServices; ++i) {
-                    // Add reward to the service overall reward
-                    curServiceId = eligibleServiceIds[i];
-                    mapStakerInfos[curServiceId].reward += (eligibleServiceRewards[i] * rewardRatio) / 1e18;
-                }
-
-                // Adjust available rewards
-                lastAvailableRewards -= totalRewards;
-            }
-
-            // Update the storage value of available rewards
-            availableRewards = lastAvailableRewards;
-        }
-
-        // Lock activity checker after checkpoint
-        IActivityChecker(activityChecker).lock();
+        IStaking(stakingInstance).checkpoint();
 
         _locked = 1;
     }
@@ -248,17 +203,19 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
         _locked = 2;
 
-        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
-        // Check for staker existence
-        if (stakerInfo.account == address(0)) {
-            revert();
+        // Get staker address
+        address staker = mapServiceIdStakers[serviceId];
+        // Check for staker access
+        // This covers both access and service existence check
+        if (msg.sender != staker) {
+            revert StakerOnly(msg.sender, staker);
         }
 
         // Get staked service state
         IStaking.StakingState stakingState = IStaking(stakingInstance).getStakingState(serviceId);
         // Check for evicted service state
         if (stakingState != IStaking.StakingState.Evicted) {
-            revert();
+            revert WrongServiceState(serviceId, stakingState);
         }
 
         // Unstake OLAS service
@@ -280,48 +237,43 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
         _locked = 2;
 
-        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
-        // Check for staker existence
-        if (stakerInfo.account == address(0)) {
-            revert();
+        // Get staker address
+        address staker = mapServiceIdStakers[serviceId];
+        // Check for staker access
+        // This covers both access and service existence check
+        if (msg.sender != staker) {
+            revert StakerOnly(msg.sender, staker);
         }
-
-        // Get staked service state
-        IStaking.StakingState stakingState = IStaking(stakingInstance).getStakingState(serviceId);
-
-        // Perform checkpoint first as there might be more rewards, only if the service is still staked
-        if (stakingState == IStaking.StakingState.Staked) {
-            checkpoint();
-        }
-
-        // Get staker info
-        address account = stakerInfo.account;
-        uint256 stakingAmount = stakerInfo.stakingAmount;
-        uint256 reward = stakerInfo.reward;
 
         // Get service multisig
         (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
         // Clear staker maps
-        delete mapStakerInfos[serviceId];
+        delete mapServiceIdStakers[serviceId];
         delete mapMutisigs[multisig];
 
-        // Transfer second token amount back to the staker
-        _withdraw(account, stakingAmount);
+        // Decrease global service counter
+        numServices--;
 
-        // Transfer second token reward to the service multisig
+        // Transfer second token staking amount back to the staker
+        _withdraw(staker, secondTokenAmount);
+
+        // Claim OLAS service reward and unstake
+        uint256 reward = IStaking(stakingInstance).unstake(serviceId);
+
+        // Check for non-zero second token reward
+        // No revert if reward is zero as there might be rewards from OLAS staking
         if (reward > 0) {
-            _withdraw(multisig, reward);
+            // Claim second token reward
+            _claim(multisig, reward);
+
+            emit Claimed(serviceId, reward);
         }
 
-        // Check for unstaked service state
-        if (stakingState != IStaking.StakingState.Unstaked) {
-            // Unstake OLAS service
-            IStaking(stakingInstance).unstake(serviceId);
+        // Transfer service to the original owner
+        IService(serviceRegistry).transferFrom(address(this), staker, serviceId);
 
-            // Transfer service to the original owner
-            IService(serviceRegistry).transferFrom(address(this), account, serviceId);
-        }
+        emit Unstaked(serviceId);
 
         _locked = 1;
     }
@@ -335,53 +287,28 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
         _locked = 2;
 
-        StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
-        // Check for staker existence
-        if (stakerInfo.account == address(0)) {
-            revert();
+        // Get staker address
+        address staker = mapServiceIdStakers[serviceId];
+        // Check for staker access
+        // This covers both access and service existence check
+        if (msg.sender != staker) {
+            revert StakerOnly(msg.sender, staker);
         }
 
-        // Perform checkpoint first as there might be more rewards
-        checkpoint();
+        // Claim OLAS service reward
+        uint256 reward = IStaking(stakingInstance).claim(serviceId);
 
-        // Get reward
-        uint256 reward = stakerInfo.reward;
-
-        // Get service multisig
-        (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
-
-        // Transfer second token reward to the service multisig
+        // Check for non-zero second token reward
+        // No revert if reward is zero as there might be rewards from OLAS staking
         if (reward > 0) {
-            _withdraw(multisig, reward);
+            // Get service multisig
+            (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
+
+            // Claim second token reward
+            _claim(multisig, reward);
+
+            emit Claimed(serviceId, reward);
         }
-
-        // Claim OLAS
-        IStaking(stakingInstance).claim(serviceId);
-
-        _locked = 1;
-    }
-
-    /// @dev Deposits funds for dual staking.
-    /// @param amount Token amount to deposit.
-    function deposit(uint256 amount) external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Add to the contract and available rewards balances
-        uint256 newBalance = balance + amount;
-        uint256 newAvailableRewards = availableRewards + amount;
-
-        // Record the new actual balance and available rewards
-        balance = newBalance;
-        availableRewards = newAvailableRewards;
-
-        // Add to the overall balance
-        SafeTransferLib.safeTransferFrom(secondToken, msg.sender, address(this), amount);
-
-        emit Deposit(msg.sender, amount, newBalance, newAvailableRewards);
 
         _locked = 1;
     }
