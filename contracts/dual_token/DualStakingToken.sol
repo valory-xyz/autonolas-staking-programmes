@@ -29,10 +29,10 @@ error StakerOnly(address sender, address staker);
 /// @param serviceId Service Id.
 error AlreadyStaked(uint256 serviceId);
 
-/// @dev Wrong service state.
+/// @dev Wrong service staking state.
 /// @param serviceId Service Id.
 /// @param state Service state.
-error WrongServiceState(uint256 serviceId, IStaking.StakingState state);
+error WrongStakingState(uint256 serviceId, IStaking.StakingState state);
 
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
@@ -44,6 +44,7 @@ error ReentrancyGuard();
 contract DualStakingToken is ERC721TokenReceiver {
     event Deposit(address indexed sender, uint256 amount, uint256 balance, uint256 availableRewards);
     event Withdraw(address indexed to, uint256 amount);
+    event Staked(uint256 indexed serviceId);
     event Claimed(uint256 indexed serviceId, uint256 reward);
     event Unstaked(uint256 indexed serviceId);
 
@@ -59,7 +60,7 @@ contract DualStakingToken is ERC721TokenReceiver {
     uint256 public immutable rewardRatio;
 
     // Number of staked services
-    uint256 numServices;
+    uint256 public numServices;
 
     // Reentrancy lock
     uint256 internal _locked = 1;
@@ -177,6 +178,8 @@ contract DualStakingToken is ERC721TokenReceiver {
         // Stake service
         IStaking(stakingInstance).stake(serviceId);
 
+        emit Staked(serviceId);
+
         _locked = 1;
     }
 
@@ -215,7 +218,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         IStaking.StakingState stakingState = IStaking(stakingInstance).getStakingState(serviceId);
         // Check for evicted service state
         if (stakingState != IStaking.StakingState.Evicted) {
-            revert WrongServiceState(serviceId, stakingState);
+            revert WrongStakingState(serviceId, stakingState);
         }
 
         // Unstake OLAS service

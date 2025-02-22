@@ -27,7 +27,7 @@ if (stakerInfo.account == address(0)) {
             revert();
         }
 ```
-[]
+[x] Fixed
 
 #### Notes: One way deposit(). Should there be an opposite function or would overcomplicate the logic?
 ```
