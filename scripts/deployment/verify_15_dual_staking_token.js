@@ -5,11 +5,13 @@ const parsedData = JSON.parse(dataFromJSON);
 const serviceRegistryAddress = parsedData.serviceRegistryAddress;
 const secondTokenAddress = parsedData.secondTokenAddress;
 const stakingTokenInstanceAddress = parsedData.stakingTokenInstanceAddress;
+const stakeRatio = parsedData.stakeRatio;
 const rewardRatio = parsedData.rewardRatio;
 
 module.exports = [
     serviceRegistryAddress,
     secondTokenAddress,
     stakingTokenInstanceAddress,
+    stakeRatio,
     rewardRatio
 ];

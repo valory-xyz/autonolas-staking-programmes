@@ -36,6 +36,7 @@ describe("Staking Dual Token", function () {
     const livenessPeriod = 10; // Ten seconds
     const initSupply = "5" + "0".repeat(26);
     const rewardRatio = ethers.utils.parseEther("1.5");
+    const stakeRatio = rewardRatio.mul(2);
     const payload = "0x";
     const livenessRatio = "1" + "0".repeat(16); // 0.01 transaction per second (TPS)
     let serviceParams = {
@@ -128,7 +129,7 @@ describe("Staking Dual Token", function () {
 
         const DualStakingToken = await ethers.getContractFactory("DualStakingToken");
         dualStakingToken = await DualStakingToken.deploy(serviceRegistry.address, secondToken.address,
-            stakingTokenAddress, rewardRatio);
+            stakingTokenAddress, stakeRatio, rewardRatio);
         await dualStakingToken.deployed();
 
         // Set dual staking token
@@ -166,16 +167,19 @@ describe("Staking Dual Token", function () {
         it("Failing to initialize with wrong parameters", async function () {
             const DualStakingToken = await ethers.getContractFactory("DualStakingToken");
             await expect(
-                DualStakingToken.deploy(AddressZero, AddressZero, AddressZero, 0)
+                DualStakingToken.deploy(AddressZero, AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, AddressZero, AddressZero, 0)
+                DualStakingToken.deploy(serviceManager.address, AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, secondToken.address, AddressZero, 0)
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, 0)
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, 0, 0)
+            ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
+            await expect(
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, stakeRatio, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
 
             // Try to set dual staking token again

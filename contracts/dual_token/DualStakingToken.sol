@@ -57,7 +57,9 @@ contract DualStakingToken is ERC721TokenReceiver {
     address public immutable stakingInstance;
     // Required second token amount
     uint256 public immutable secondTokenAmount;
-    // Second token ratio to OLAS rewards in 1e18 form
+    // Second token stake ratio to OLAS in 1e18 form
+    uint256 public immutable stakeRatio;
+    // Second token reward ratio to OLAS in 1e18 form
     uint256 public immutable rewardRatio;
 
     // Number of staked services
@@ -80,6 +82,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         address _serviceRegistry,
         address _secondToken,
         address _stakingInstance,
+        uint256 _stakeRatio,
         uint256 _rewardRatio
     ) {
         // Check for zero addresses
@@ -88,23 +91,25 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
 
         // Check for zero values
-        if (_rewardRatio == 0) {
+        if (_stakeRatio == 0 || _rewardRatio == 0) {
             revert ZeroValue();
         }
 
         serviceRegistry = _serviceRegistry;
         secondToken = _secondToken;
         stakingInstance = _stakingInstance;
+        stakeRatio = _stakeRatio;
         rewardRatio = _rewardRatio;
 
         // Calculate second token amount based on staking instance service information
         uint256 numAgentInstances = IStaking(_stakingInstance).numAgentInstances();
         uint256 minStakingDeposit = IStaking(_stakingInstance).minStakingDeposit();
         // Total service deposit = minStakingDeposit + minStakingDeposit * numAgentInstances
-        secondTokenAmount = (minStakingDeposit * (1 + numAgentInstances) * _rewardRatio) / 1e18;
+        secondTokenAmount = (minStakingDeposit * (1 + numAgentInstances) * _stakeRatio) / 1e18;
     }
 
     /// @dev Claims second token reward.
+    /// @notice reward value must be non-zero by implementation requirement.
     /// @param multisig Service multisig address.
     /// @param reward Second token non-zero reward.
     function _claim(address multisig, uint256 reward) internal {
@@ -121,6 +126,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
 
         // Withdraw reward to service multisig
+        // reward value is always non-zero
         _withdraw(multisig, reward);
     }
 

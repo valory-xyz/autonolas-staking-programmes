@@ -40,5 +40,6 @@
     },
   "stakingTokenInstanceAddress":"",
   "secondTokenAddress":"",
+  "stakeRatio":"",
   "rewardRatio":""
 }

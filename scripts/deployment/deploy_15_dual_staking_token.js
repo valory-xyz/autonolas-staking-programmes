@@ -15,6 +15,7 @@ async function main() {
     const serviceRegistryAddress = parsedData.serviceRegistryAddress;
     const secondTokenAddress = parsedData.secondTokenAddress;
     const stakingTokenInstanceAddress = parsedData.stakingTokenInstanceAddress;
+    const stakeRatio = parsedData.stakeRatio;
     const rewardRatio = parsedData.rewardRatio;
 
     let networkURL = parsedData.networkURL;
@@ -50,7 +51,7 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const DualStakingToken = await ethers.getContractFactory("DualStakingToken");
     const dualStakingToken = await DualStakingToken.connect(EOA).deploy(serviceRegistryAddress, secondTokenAddress,
-        stakingTokenInstanceAddress, rewardRatio, { gasPrice });
+        stakingTokenInstanceAddress, stakeRatio, rewardRatio, { gasPrice });
     const result = await dualStakingToken.deployed();
 
     // Transaction details
