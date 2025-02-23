@@ -274,7 +274,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         // Claim OLAS service reward and unstake
         uint256 reward = IStaking(stakingInstance).unstake(serviceId);
 
-        // Check for non-zero second token reward
+        // Check for non-zero OLAS reward
         // No revert if reward is zero as there might be rewards from OLAS staking
         if (reward > 0) {
             // Claim second token reward
@@ -311,7 +311,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         // Claim OLAS service reward
         uint256 reward = IStaking(stakingInstance).claim(serviceId);
 
-        // Check for non-zero second token reward
+        // Check for non-zero OLAS reward
         // No revert if reward is zero as there might be rewards from OLAS staking
         if (reward > 0) {
             // Get service multisig
