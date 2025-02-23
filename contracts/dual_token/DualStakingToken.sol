@@ -77,7 +77,8 @@ contract DualStakingToken is ERC721TokenReceiver {
     /// @param _serviceRegistry Service registry address.
     /// @param _secondToken Second token address that is deposited along with OLAS-based service.
     /// @param _stakingInstance Service staking instance address.
-    /// @param _rewardRatio Second token ratio to OLAS rewards in 1e18 form.
+    /// @param _stakeRatio Second token deposit ratio to OLAS in 1e18 form.
+    /// @param _rewardRatio Second token reward ratio to OLAS in 1e18 form.
     constructor(
         address _serviceRegistry,
         address _secondToken,
@@ -165,7 +166,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         // Get service multisig
         (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
-        // Record staker info values
+        // Record staker address
         mapServiceIdStakers[serviceId] = msg.sender;
 
         // Record service multisig as being active in this staking contract
