@@ -210,11 +210,6 @@ describe("Staking Dual Token", function () {
                 stakingToken.stake(serviceId)
             ).to.be.revertedWithCustomError(dualTokenActivityChecker, "UnauthorizedAccount");
 
-            // Try to stake with zero second token funds
-            await expect(
-                dualStakingToken.stake(serviceId)
-            ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
-
             // Fund dualStakingToken contract
             await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
 

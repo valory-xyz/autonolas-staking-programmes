@@ -38,7 +38,7 @@ error WrongStakingState(uint256 serviceId, IStaking.StakingState state);
 error ReentrancyGuard();
 
 /// @title DualStakingToken - Smart contract for dual token staking: it accepts OLAS-based service NFT
-///        and a deposit of defined second token that is proportionally calculated to OLAS service stake amount
+///        and a deposit of defined second ERC20 token that is proportionally calculated to OLAS service stake amount
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
@@ -149,13 +149,6 @@ contract DualStakingToken is ERC721TokenReceiver {
             revert ReentrancyGuard();
         }
         _locked = 2;
-
-        // Get second token balance, reserving the staked amount untouched
-        uint256 balance = IToken(secondToken).balanceOf(address(this)) - secondTokenAmount * numServices;
-        // Check for zero available rewards
-        if (balance == 0) {
-            revert ZeroValue();
-        }
 
         address staker = mapServiceIdStakers[serviceId];
         // Check for existing staker
