@@ -127,8 +127,9 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
 
         // Withdraw reward to service multisig
-        // reward value is always non-zero
-        _withdraw(multisig, reward);
+        if (reward > 0) {
+            _withdraw(multisig, reward);
+        }
     }
 
     /// @dev Withdraws the reward amount to a service owner.

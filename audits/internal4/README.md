@@ -29,13 +29,13 @@ or claim after claim all:
 1. claim reward > balance -> reward = balance; -> IToken(secondToken).balanceOf(address(this)) == secondTokenAmount * numServices
 2. claim reward > balance -> reward = balance = 0
 ```
-[]
+[x] Fixed
 
 #### Notes/Low. Missing (?) deposit()
 ```
 There is no explicit deposit() token function
 ```
-[]
+[x] Discussed, no need to change
 
 
 
