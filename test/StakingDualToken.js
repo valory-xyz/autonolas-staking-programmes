@@ -2,6 +2,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
+const safeContracts = require("@gnosis.pm/safe-contracts");
 
 describe("Staking Dual Token", function () {
     let serviceRegistry;
@@ -29,14 +30,13 @@ describe("Staking Dual Token", function () {
     const regDeposit = 1000;
     const regBond = 1000;
     const serviceId = 1;
-    const agentId = 1;
-    let socialId = 1;
     const agentIds = [1];
     const agentParams = [[1, regBond]];
     const threshold = 1;
     const livenessPeriod = 10; // Ten seconds
     const initSupply = "5" + "0".repeat(26);
     const rewardRatio = ethers.utils.parseEther("1.5");
+    const stakeRatio = rewardRatio.mul(2);
     const payload = "0x";
     const livenessRatio = "1" + "0".repeat(16); // 0.01 transaction per second (TPS)
     let serviceParams = {
@@ -129,7 +129,7 @@ describe("Staking Dual Token", function () {
 
         const DualStakingToken = await ethers.getContractFactory("DualStakingToken");
         dualStakingToken = await DualStakingToken.deploy(serviceRegistry.address, secondToken.address,
-            stakingTokenAddress, rewardRatio);
+            stakingTokenAddress, stakeRatio, rewardRatio);
         await dualStakingToken.deployed();
 
         // Set dual staking token
@@ -167,22 +167,52 @@ describe("Staking Dual Token", function () {
         it("Failing to initialize with wrong parameters", async function () {
             const DualStakingToken = await ethers.getContractFactory("DualStakingToken");
             await expect(
-                DualStakingToken.deploy(AddressZero, AddressZero, AddressZero, 0)
+                DualStakingToken.deploy(AddressZero, AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, AddressZero, AddressZero, 0)
+                DualStakingToken.deploy(serviceManager.address, AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, secondToken.address, AddressZero, 0)
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, 0)
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, 0, 0)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
+            await expect(
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, stakeRatio, 0)
+            ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
+
+            // Try to set dual staking token again
+            await expect(
+                dualTokenActivityChecker.setDualStakingToken(AddressZero)
+            ).to.be.revertedWithCustomError(dualTokenActivityChecker, "UnauthorizedAccount");
+
+            const DualStakingTokenActivityChecker = await ethers.getContractFactory("DualStakingTokenActivityChecker");
+            const dualTokenActivityCheckerTest = await DualStakingTokenActivityChecker.deploy(livenessRatio);
+            await dualTokenActivityCheckerTest.deployed();
+            // Try to set zero dual staking token again
+            await expect(
+                dualTokenActivityCheckerTest.setDualStakingToken(AddressZero)
+            ).to.be.revertedWithCustomError(dualTokenActivityCheckerTest, "ZeroAddress");
         });
     });
 
     context("Staking management", function () {
-        it.only("Stake and get rewards", async function () {
+        it("Stake", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Approve service for original staking token
+            await serviceRegistry.approve(stakingToken.address, serviceId);
+
+            // Try to stake from the original staking contract
+            await expect(
+                stakingToken.stake(serviceId)
+            ).to.be.revertedWithCustomError(dualTokenActivityChecker, "UnauthorizedAccount");
+
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
+
             // Approve service for dual staking token
             await serviceRegistry.approve(dualStakingToken.address, serviceId);
 
@@ -194,543 +224,303 @@ describe("Staking Dual Token", function () {
 
             // Stake service + token
             await dualStakingToken.stake(serviceId);
-        });
 
-        it("Mint, stake, unstake", async function () {
-            // Take a snapshot of the current state of the blockchain
-            const snapshot = await helpers.takeSnapshot();
-
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Create and stake the service
-            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
-
-            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(maxInactivity);
-
-            const balanceBefore = await token.balanceOf(deployer.address);
-
-            // Unstake the service with transferring the service back to the contributor
-            await contributors.unstake(true);
-
-            const balanceAfter = await token.balanceOf(deployer.address);
-
-            // Check returned token funds
-            const balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
+            // Try to stake again
+            await expect(
+                dualStakingToken.stake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "AlreadyStaked");
 
             // Restore a previous state of blockchain
             snapshot.restore();
         });
 
-        it("Mint, stake, unstake and stake again", async function () {
+        it("Stake and claim rewards", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
 
-            // Create and stake the service
-            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
 
-            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(maxInactivity);
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
 
-            const balanceBefore = await token.balanceOf(deployer.address);
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
 
-            // Unstake the service with transferring the service back to the contributor
-            await contributors.unstake(true);
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
 
-            const balanceAfter = await token.balanceOf(deployer.address);
+            // Get the service multisig contract
+            const service = await serviceRegistry.getService(serviceId);
+            const multisig = await ethers.getContractAt("GnosisSafe", service.multisig);
 
-            // Check returned token funds
-            const balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
-
-            // Try to pull already pulled service
-            await expect(
-                contributors.pullUnbondedService()
-            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
-
-            // Approve the service for the contributors
-            await serviceRegistry.approve(contributors.address, serviceId);
-
-            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Stake the service again
-            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
-
-            // Check native balance of a contributors contract such that nothing is left on it
-            const nativeBalance = await ethers.provider.getBalance(contributors.address);
-            expect(nativeBalance).to.equal(0);
-
-            // Restore a previous state of blockchain
-            snapshot.restore();
-        });
-
-        it("Mint, stake, unstake and stake again without service collection", async function () {
-            // Take a snapshot of the current state of the blockchain
-            const snapshot = await helpers.takeSnapshot();
-
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Create and stake the service
-            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
-
-            // Get multisig address
-            const multisigAddress = (await contributors.mapAccountServiceInfo(deployer.address)).multisig;
-
-            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(maxInactivity);
-
-            let balanceBefore = await token.balanceOf(deployer.address);
-
-            // Unstake the service without transferring the service back to the contributor
-            await contributors.unstake(false);
-
-            let balanceAfter = await token.balanceOf(deployer.address);
-
-            // Check returned token funds
-            let balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
-
-            // Try to re-stake without approved funds
-            await expect(
-                contributors.stake(socialId, serviceId, stakingToken.address)
-            ).to.be.reverted;
-
-            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Stake the service again
-            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
-
-            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(maxInactivity);
-
-            balanceBefore = await token.balanceOf(deployer.address);
-
-            // Unstake the service without transferring the service back to the contributor
-            await contributors.unstake(false);
-
-            balanceAfter = await token.balanceOf(deployer.address);
-
-            // Check returned token funds
-            balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit * 2);
-
-            // Pull the service
-            await contributors.pullUnbondedService();
-
-            // Try to pull already pulled service again
-            await expect(
-                contributors.pullUnbondedService()
-            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
-
-            // Activate registration
-            await token.approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
-            await serviceManager.activateRegistration(serviceId, {value: 1});
-
-            // Approve the service for the contributors
-            await serviceRegistry.approve(contributors.address, serviceId);
-
-            // Try to stake service in a wrong state
-            await expect(
-                contributors.stake(socialId, serviceId, stakingToken.address, {value: 2})
-            ).to.be.revertedWithCustomError(contributors, "WrongServiceState");
-
-            // Register agent instance
-            await token.transfer(operator.address, serviceParams.minStakingDeposit);
-            await token.connect(operator).approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
-            await serviceManager.connect(operator).registerAgents(serviceId, [deployer.address], agentIds, {value: 1});
-
-            // Pack the original multisig address
-            const data = ethers.utils.solidityPack(["address"], [multisigAddress]);
-
-            // Deploy service
-            await serviceManager.deploy(serviceId, gnosisSafeSameAddressMultisig.address, data);
-
-            // Stake deployed service again
-            await contributors.stake(socialId, serviceId, stakingToken.address);
-
-            // Try to pull service while it's staked
-            await expect(
-                contributors.pullUnbondedService()
-            ).to.be.revertedWithCustomError(contributors, "WrongServiceSetup");
-
-            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(maxInactivity);
-
-            balanceBefore = await token.balanceOf(deployer.address);
-
-            // Unstake the service with transferring the service back to the contributor
-            await contributors.unstake(true);
-
-            balanceAfter = await token.balanceOf(deployer.address);
-
-            // Check returned token funds: it's just one minStakingDeposit because the second one must be unbonded directly
-            balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit);
-
-            balanceBefore = await token.balanceOf(operator.address);
-            
-            // Since operator of the service is not contributors contract, unbond it manually
-            await serviceManager.connect(operator).unbond(serviceId);
-
-            balanceAfter = await token.balanceOf(operator.address);
-            // Bond balance is returned to the operator
-            balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(serviceParams.minStakingDeposit);
-
-            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-            // Approve the service for the contributors
-            await serviceRegistry.approve(contributors.address, serviceId);
-
-            // Stake the service again such that it's activated and registered by contributors
-            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
-
-            // Check native balance of a contributors contract such that nothing is left on it
-            const nativeBalance = await ethers.provider.getBalance(contributors.address);
-            expect(nativeBalance).to.equal(0);
-
-            // Restore a previous state of blockchain
-            snapshot.restore();
-        });
-
-        it("Mint, stake, perform activity, claim", async function () {
-            // Take a snapshot of the current state of the blockchain
-            const snapshot = await helpers.takeSnapshot();
-
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Create and stake the service
-            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
-
-            // Get the user data
-            const serviceInfo = await contributors.mapAccountServiceInfo(deployer.address);
-
-            // Perform the service activity
-            await contributors.increaseActivity([serviceInfo.multisig], [10]);
+            // Make transactions by the service multisig
+            let nonce = await multisig.nonce();
+            let txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
+            let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // Increase the time until the next staking epoch
             await helpers.time.increase(livenessPeriod);
 
-            // Call the checkpoint
-            await stakingToken.checkpoint();
+            // Calculate service staking reward that must be greater than zero
+            const olasReward = await stakingToken.calculateStakingReward(serviceId);
+            expect(olasReward).to.greaterThan(0);
 
-            const balanceBefore = ethers.BigNumber.from(await token.balanceOf(serviceInfo.multisig));
+            // Call checkpoint
+            await dualStakingToken.checkpoint();
+
+            // Try to claim directly from the service staking token
+            await expect(
+                stakingToken.claim(serviceId)
+            ).to.be.revertedWithCustomError(stakingToken, "OwnerOnly");
+
+            // Try to claim not by the owner
+            await expect(
+                dualStakingToken.connect(operator).claim(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
+
+            // Try to claim for non-staked service
+            await expect(
+                dualStakingToken.claim(serviceId + 1)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
 
             // Claim rewards
-            await contributors.claim();
+            await dualStakingToken.claim(serviceId);
 
-            const balanceAfter = ethers.BigNumber.from(await token.balanceOf(serviceInfo.multisig));
-            // The balance before and after the claim must be different
-            expect(balanceAfter).to.gt(balanceBefore);
+            // Check multisig second token rewards are non-zero
+            const secondTokenReward = await secondToken.balanceOf(multisig.address);
+            expect(secondTokenReward).to.greaterThan(0);
 
-            // Check native balance of a contributors contract such that nothing is left on it
-            const nativeBalance = await ethers.provider.getBalance(contributors.address);
-            expect(nativeBalance).to.equal(0);
+            // Try to claim again
+            await expect(
+                dualStakingToken.claim(serviceId)
+            ).to.be.revertedWithCustomError(stakingToken, "ZeroValue");
 
             // Restore a previous state of blockchain
             snapshot.restore();
         });
 
-        it("Mint, stake, re-stake due to inactivity", async function () {
+        it("Stake and unstake with rewards", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
 
-            // Create and stake the service
-            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
 
-            // Try to re-stake correctly staked service
-            await expect(
-                contributors.reStake(stakingToken.address)
-            ).to.be.revertedWithCustomError(contributors, "ServiceAlreadyStaked");
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
 
-            // Increase the time until the next staking epoch
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Get the service multisig contract
+            const service = await serviceRegistry.getService(serviceId);
+            const multisig = await ethers.getContractAt("GnosisSafe", service.multisig);
+
+            // Make transactions by the service multisig
+            let nonce = await multisig.nonce();
+            let txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
+            let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Increase the time until the max inactivity
             await helpers.time.increase(maxInactivity);
 
-            // Call the checkpoint
-            await stakingToken.checkpoint();
+            // Call checkpoint
+            await dualStakingToken.checkpoint();
 
-            // The service is currently evicted, re-stake (unstake and stake again)
-            await contributors.reStake(stakingToken.address);
+            // Calculate service staking reward that must be greater than zero
+            const olasReward = await stakingToken.calculateStakingReward(serviceId);
+            expect(olasReward).to.greaterThan(0);
 
-            // Check native balance of a contributors contract such that nothing is left on it
-            const nativeBalance = await ethers.provider.getBalance(contributors.address);
-            expect(nativeBalance).to.equal(0);
-
-            // Restore a previous state of blockchain
-            snapshot.restore();
-        });
-
-        it("Mint, stake, re-stake to another staking contract", async function () {
-            // Take a snapshot of the current state of the blockchain
-            const snapshot = await helpers.takeSnapshot();
-
-            // Try to re-stake without initial staking
+            // Try to unstake directly from the service staking token
             await expect(
-                contributors.reStake(stakingToken.address)
-            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
+                stakingToken.unstake(serviceId)
+            ).to.be.revertedWithCustomError(stakingToken, "OwnerOnly");
 
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Create and stake the service
-            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
-
-            // Increase the time until unstaking is possible
-            await helpers.time.increase(maxInactivity);
-
-            // Call the checkpoint
-            await stakingToken.checkpoint();
-
-            // Set up a different staking contract
-            const testServiceParams = JSON.parse(JSON.stringify(serviceParams));
-            testServiceParams.minStakingDeposit = regDeposit * 2;
-
-            // Deploy staking contract
-            let initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
-                [testServiceParams, serviceRegistryTokenUtility.address, token.address]);
-            let tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
-            let res = await tx.wait();
-            // Get staking contract instance address from the event
-            let nextStakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
-            let nextStakingToken = await ethers.getContractAt("StakingToken", nextStakingTokenAddress);
-
-            // Fund staking contract
-            await token.approve(nextStakingTokenAddress, ethers.utils.parseEther("1"));
-            await nextStakingToken.deposit(ethers.utils.parseEther("1"));
-
-            // Try to re-stake to a different contract without increasing approve
+            // Try to unstake not by the owner
             await expect(
-                contributors.reStake(nextStakingTokenAddress)
-            ).to.be.reverted;
+                dualStakingToken.connect(operator).unstake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
 
-            // Approve more OLAS for contributors
-            await token.approve(contributors.address, testServiceParams.minStakingDeposit * 2);
-
-            // The service is currently evicted, re-stake to a different contract
-            await contributors.reStake(nextStakingTokenAddress, {value: 2});
-
-            // Increase the time until unstaking is possible
-            await helpers.time.increase(maxInactivity);
-
-            // Call the checkpoint
-            await nextStakingToken.checkpoint();
-
-            // Set up yet another different staking contract
-            testServiceParams.minStakingDeposit = regDeposit / 4;
-
-            initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
-                [testServiceParams, serviceRegistryTokenUtility.address, token.address]);
-            tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
-            res = await tx.wait();
-            // Get staking contract instance address from the event
-            nextStakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
-            nextStakingToken = await ethers.getContractAt("StakingToken", nextStakingTokenAddress);
-
-            // Fund staking contract
-            await token.approve(nextStakingTokenAddress, ethers.utils.parseEther("1"));
-            await nextStakingToken.deposit(ethers.utils.parseEther("1"));
-
-            // Approve fewer OLAS for contributors
-            await token.approve(contributors.address, testServiceParams.minStakingDeposit * 2);
-
-            // The service is currently evicted, re-stake to a different contract
-            await contributors.reStake(nextStakingTokenAddress, {value: 2});
-
-            // Increase the time until unstaking is possible
-            await helpers.time.increase(maxInactivity);
-
-            // Call the checkpoint
-            await nextStakingToken.checkpoint();
-
-            let balanceBefore = await token.balanceOf(deployer.address);
-
-            // Unstake the service with transferring the service back to the contributor
-            await contributors.unstake(false);
-
-            let balanceAfter = await token.balanceOf(deployer.address);
-
-            // Check returned token funds
-            let balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(testServiceParams.minStakingDeposit * 2);
-
-            // Check native balance of a contributors contract such that nothing is left on it
-            const nativeBalance = await ethers.provider.getBalance(contributors.address);
-            expect(nativeBalance).to.equal(0);
-
-            // Restore a previous state of blockchain
-            snapshot.restore();
-        });
-        
-        it("Should fail when executing with incorrect values and states", async function () {
-            // Take a snapshot of the current state of the blockchain
-            const snapshot = await helpers.takeSnapshot();
-
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Try to create a new service with zero social Id
+            // Try to unstake for non-staked service
             await expect(
-                contributors.createAndStake(0, stakingToken.address, {value: 2})
-            ).to.be.revertedWithCustomError(contributors, "ZeroValue");
+                dualStakingToken.unstake(serviceId + 1)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
 
-            // Try to create and stake a new service with wrong staking instance
-            await expect(
-                contributors.createAndStake(socialId, deployer.address, {value: 2})
-            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
+            // Claim rewards
+            await dualStakingToken.unstake(serviceId);
 
-            // Create and stake the service
-            await contributors.createAndStake(socialId, stakingToken.address, {value: 2});
-            
-            // Try to create the service again
-            await expect(
-                contributors.createAndStake(socialId, stakingToken.address, {value: 2})
-            ).to.be.revertedWithCustomError(contributors, "ServiceAlreadyStaked");
-
-            // Try to stake the service again
-            await expect(
-                contributors.stake(socialId, serviceId, stakingToken.address)
-            ).to.be.revertedWithCustomError(contributors, "ServiceAlreadyStaked");
-
-            // Increase the time while the service does not reach the required amount of transactions per second (TPS)
-            await helpers.time.increase(maxInactivity);
-
-            // Unstake the service with transferring the service back to the contributor
-            await contributors.unstake(true);
+            // Check multisig second token rewards are non-zero
+            const secondTokenReward = await secondToken.balanceOf(multisig.address);
+            expect(secondTokenReward).to.greaterThan(0);
 
             // Try to unstake again
             await expect(
-                contributors.unstake(true)
-            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
+                dualStakingToken.unstake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
 
-            // Try to claim the unstaked service
-            await expect(
-                contributors.claim()
-            ).to.be.revertedWithCustomError(contributors, "ServiceNotDefined");
+            // Stake again
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
 
-            // Approve more OLAS for contributors
-            await token.approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit * 3);
-            await token.connect(operator).approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit * 3);
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
 
-            // Create wrong service setup
-            await serviceManager.create(deployer.address, token.address, defaultHash, agentIds, agentParams, threshold);
-            await serviceManager.activateRegistration(serviceId + 1, {value: 1});
-            await serviceManager.connect(operator).registerAgents(serviceId + 1, [agentInstances[0].address], agentIds, {value: 1});
-            await serviceManager.deploy(serviceId + 1, gnosisSafeMultisig.address, payload);
-
-            // Approve service for the contribute manager
-            await serviceRegistry.approve(contributors.address, serviceId + 1);
-
-            // Try to stake with wrong parameters
-            await expect(
-                contributors.stake(socialId, serviceId + 1, stakingToken.address)
-            ).to.be.revertedWithCustomError(contributors, "WrongServiceSetup");
-
-            // Create another wrong service setup
-            await serviceManager.create(deployer.address, token.address, defaultHash, agentIds, [[2, regBond]], 2);
-            await serviceManager.activateRegistration(serviceId + 2, {value: 1});
-            await serviceManager.connect(operator).registerAgents(serviceId + 2, [agentInstances[1].address, agentInstances[2].address],
-                [agentId, agentId], {value: 2});
-            await serviceManager.deploy(serviceId + 2, gnosisSafeMultisig.address, payload);
-
-            // Approve service for the contribute manager
-            await serviceRegistry.approve(contributors.address, serviceId + 2);
-
-            // Try to stake with wrong parameters
-            await expect(
-                contributors.stake(socialId, serviceId + 2, stakingToken.address)
-            ).to.be.revertedWithCustomError(contributors, "WrongServiceSetup");
-
-            // Approve the service for the contributors
-            await serviceRegistry.approve(contributors.address, serviceId);
-
-            // Approve OLAS for contributors again as OLAS was returned during the unstake and unbond
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
-
-            // Stake the service again
-            await contributors.stake(socialId, serviceId, stakingToken.address, {value: 2});
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
 
             // Restore a previous state of blockchain
             snapshot.restore();
         });
 
-        it("Should fail when staking with a wrong instance", async function () {
-            // Approve OLAS for contributors
-            await token.approve(contributors.address, serviceParams.minStakingDeposit * 2);
+        it("Stake and restake after eviction", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
 
-            // Deploy a staking contract with max number of services equal to one
-            const testServiceParams = JSON.parse(JSON.stringify(serviceParams));
-            testServiceParams.numAgentInstances = 2;
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
 
-            let initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
-                [testServiceParams, serviceRegistryTokenUtility.address, token.address]);
-            let tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
-            let res = await tx.wait();
-            // Get staking contract instance address from the event
-            let stakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
 
-            // Fund the staking contract
-            let testStakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
-            await token.approve(stakingTokenAddress, ethers.utils.parseEther("1"));
-            await testStakingToken.deposit(ethers.utils.parseEther("1"));
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
 
-            // Try to create and stake a new service with wrong num agent instances
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Try to restake service that was just staked
             await expect(
-                contributors.createAndStake(socialId, stakingTokenAddress, {value: 2})
-            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
+                dualStakingToken.restake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "WrongStakingState");
 
-            // Reset number of agent isntances and update threshold
-            testServiceParams.numAgentInstances = 1;
-            testServiceParams.threshold = 2;
+            // Increase the time until the max inactivity without any service activity
+            await helpers.time.increase(maxInactivity);
 
-            initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
-                [testServiceParams, serviceRegistryTokenUtility.address, token.address]);
-            tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
-            res = await tx.wait();
-            // Get staking contract instance address from the event
-            stakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
+            // Call checkpoint, the service is going to be evicted
+            await dualStakingToken.checkpoint();
 
-            // Fund the staking contract
-            testStakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
-            await token.approve(stakingTokenAddress, ethers.utils.parseEther("1"));
-            await testStakingToken.deposit(ethers.utils.parseEther("1"));
+            // Calculate service staking reward that must be greater than zero
+            const olasReward = await stakingToken.calculateStakingReward(serviceId);
+            expect(olasReward).to.equal(0);
 
-            // Try to create and stake a new service with wrong threshold
+            // Try to unstake directly from the service staking token
             await expect(
-                contributors.createAndStake(socialId, stakingTokenAddress, {value: 2})
-            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
+                stakingToken.unstake(serviceId)
+            ).to.be.revertedWithCustomError(stakingToken, "OwnerOnly");
 
-            // Reset threshold
-            testServiceParams.threshold = 1;
-
-            // Update the token address
-            initPayload = stakingTokenImplementation.interface.encodeFunctionData("initialize",
-                [testServiceParams, serviceRegistryTokenUtility.address, deployer.address]);
-            tx = await stakingFactory.createStakingInstance(stakingTokenImplementation.address, initPayload);
-            res = await tx.wait();
-            // Get staking contract instance address from the event
-            stakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
-
-            // Fund the staking contract
-            testStakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
-            await token.approve(stakingTokenAddress, ethers.utils.parseEther("1"));
-            await testStakingToken.deposit(ethers.utils.parseEther("1"));
-
-            // Try to create and stake a new service with wrong token
+            // Try to restake not by the owner
             await expect(
-                contributors.createAndStake(socialId, stakingTokenAddress, {value: 2})
-            ).to.be.revertedWithCustomError(contributors, "WrongStakingInstance");
+                dualStakingToken.connect(operator).restake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
+
+            // Try to restake for non-staked service
+            await expect(
+                dualStakingToken.restake(serviceId + 1)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
+
+            // Claim rewards
+            await dualStakingToken.restake(serviceId);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Stake and claim with limited rewards", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Fund dualStakingToken contract with just 1 wei
+            await secondToken.transfer(dualStakingToken.address, 1);
+
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
+
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
+
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Get the service multisig contract
+            const service = await serviceRegistry.getService(serviceId);
+            const multisig = await ethers.getContractAt("GnosisSafe", service.multisig);
+
+            // Make transactions by the service multisig
+            let nonce = await multisig.nonce();
+            let txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
+            let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Increase the time until the next staking epoch
+            await helpers.time.increase(livenessPeriod);
+
+            // Calculate service staking reward that must be greater than zero
+            let olasReward = await stakingToken.calculateStakingReward(serviceId);
+            expect(olasReward).to.greaterThan(0);
+
+            // Call checkpoint
+            await dualStakingToken.checkpoint();
+
+            // Claim rewards
+            await dualStakingToken.claim(serviceId);
+
+            // Check multisig second token rewards are exactly 1 wei
+            let secondTokenReward = await secondToken.balanceOf(multisig.address);
+            expect(secondTokenReward).to.equal(1);
+
+            // Perform another round of OLAS service activity
+            // Make transactions by the service multisig
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
+            signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Increase the time until the next staking epoch
+            await helpers.time.increase(livenessPeriod);
+
+            // Call checkpoint
+            await dualStakingToken.checkpoint();
+
+            // Claim rewards again
+            await dualStakingToken.claim(serviceId);
+
+            // Check multisig second token rewards are still the same
+            secondTokenReward = await secondToken.balanceOf(multisig.address);
+            expect(secondTokenReward).to.equal(1);
+
+            // Increase the time until the next staking epoch
+            await helpers.time.increase(livenessPeriod);
+
+            // Call checkpoint
+            await dualStakingToken.checkpoint();
+
+            // Unstake
+            await dualStakingToken.unstake(serviceId);
+
+            // Check multisig second token rewards are still the same
+            secondTokenReward = await secondToken.balanceOf(multisig.address);
+            expect(secondTokenReward).to.equal(1);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
         });
     });
 });

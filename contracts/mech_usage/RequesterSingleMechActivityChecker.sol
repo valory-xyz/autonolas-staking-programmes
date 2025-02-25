@@ -25,7 +25,7 @@ error ZeroMechAgentAddress();
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract RequesterSingleMechActivityChecker is StakingActivityChecker{
+contract RequesterSingleMechActivityChecker is StakingActivityChecker {
     // AI agent mech contract address.
     address public immutable agentMech;
 

@@ -27,19 +27,19 @@ if (stakerInfo.account == address(0)) {
             revert();
         }
 ```
-[]
+[x] Fixed
 
 #### Notes: One way deposit(). Should there be an opposite function or would overcomplicate the logic?
 ```
 function deposit(uint256 amount) external {} <- can't redo deposit() 
 ```
-[]
+[x] Discussed, no change needed
 
 #### Notes: reward in both token? triple check and test logic
 ```
 Why does the code only show rewards in second tokens? Shouldn't it be paid out symmetrically in OLAS/second ERC20 token?
 ```
-[]
+[x] Discussed, added comments
 
 #### Notes: reward in second token. triple check and test logic
 ```
@@ -52,7 +52,7 @@ Why do we send a reward equal stakerInfo.reward to the second tokens? Why not st
             _withdraw(multisig, reward); <--- mul ratio?
         }
 ```
-[]
+[x] Discussed, false positive
 
 #### Notes: Available reward in second token. triple check and tests logic
 ```
@@ -110,7 +110,7 @@ The logic looks confusing and somewhere it multiplies by ratio, sometime not. Pl
             availableRewards = lastAvailableRewards; --> lastAvailableRewards vs totalRewards without ratio
         }
 ```
-[]
+[x] Fixed
 
 
 
