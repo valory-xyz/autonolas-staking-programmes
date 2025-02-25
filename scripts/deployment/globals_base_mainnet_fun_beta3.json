@@ -27,7 +27,7 @@
       "rewardsPerSecond":"219907407407600",
       "minStakingDeposit":"2500000000000000000000",
       "minNumStakingPeriods":"3",
-      "maxNumInactivityPeriods":"3",
+      "maxNumInactivityPeriods":"2",
       "livenessPeriod":"86400",
       "timeForEmissions":"2592000",
       "numAgentInstances":"1",
