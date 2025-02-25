@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
@@ -28,7 +29,7 @@ error OwnerOnly(address sender, address owner);
 error ReentrancyGuard();
 
 struct StakerInfo {
-    // Staking token amount
+    // Second token amount
     uint256 stakingAmount;
     // Cumulative reward
     uint256 reward;
@@ -40,29 +41,27 @@ struct StakerInfo {
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-contract DualStakingToken {
+contract DualStakingToken is ERC721TokenReceiver {
     event OwnerUpdated(address indexed owner);
-    event StakingTokenParamsUpdated(uint256 stakingTokenAmount, uint256 rewardRatio);
+    event StakingTokenParamsUpdated(uint256 secondTokenAmount, uint256 rewardRatio);
     event Deposit(address indexed sender, uint256 amount, uint256 balance, uint256 availableRewards);
     event Withdraw(address indexed to, uint256 amount);
 
     // Service registry address
     address public immutable serviceRegistry;
-    // Staking token address (except for OLAS)
-    address public immutable stakingToken;
-    // Service staking instance address
+    // Second token address (except for OLAS)
+    address public immutable secondToken;
+    // OLAS service staking instance address
     address public immutable stakingInstance;
+    // Required second token amount
+    uint256 public immutable secondTokenAmount;
+    // Second token ratio to OLAS rewards in 1e18 form
+    uint256 public immutable rewardRatio;
 
-    // Required staking token amount
-    uint256 public stakingTokenAmount;
-    // Staking token ratio to OLAS rewards in 1e18 form
-    uint256 public rewardRatio;
-    // Staking token contract balance
+    // Second token contract balance
     uint256 public balance;
-    // Staking token available rewards
+    // Second token available rewards
     uint256 public availableRewards;
-    // Owner address
-    address public owner;
 
     // Reentrancy lock
     uint256 internal _locked = 1;
@@ -74,17 +73,17 @@ contract DualStakingToken {
 
     /// @dev DualStakingToken constructor.
     /// @param _serviceRegistry Service registry address.
-    /// @param _stakingToken Staking token address.
+    /// @param _secondToken Second token address.
     /// @param _stakingInstance Service staking instance address.
-    /// @param _rewardRatio Staking token ratio to OLAS rewards in 1e18 form.
+    /// @param _rewardRatio Second token ratio to OLAS rewards in 1e18 form.
     constructor(
         address _serviceRegistry,
-        address _stakingToken,
+        address _secondToken,
         address _stakingInstance,
         uint256 _rewardRatio
     ) {
         // Check for zero addresses
-        if (_serviceRegistry == address(0) || _stakingToken == address(0) || _stakingInstance == address(0)) {
+        if (_serviceRegistry == address(0) || _secondToken == address(0) || _stakingInstance == address(0)) {
             revert ZeroAddress();
         }
 
@@ -94,18 +93,15 @@ contract DualStakingToken {
         }
 
         serviceRegistry = _serviceRegistry;
-        stakingToken = _stakingToken;
+        secondToken = _secondToken;
         stakingInstance = _stakingInstance;
-
         rewardRatio = _rewardRatio;
 
-        // Calculate staking token amount based on staking instance service information
+        // Calculate second token amount based on staking instance service information
         uint256 numAgentInstances = IStaking(_stakingInstance).numAgentInstances();
         uint256 minStakingDeposit = IStaking(_stakingInstance).minStakingDeposit();
         // Total service deposit = minStakingDeposit + minStakingDeposit * numAgentInstances
-        stakingTokenAmount = (minStakingDeposit * (1 + numAgentInstances) * _rewardRatio) / 1e18;
-
-        owner = msg.sender;
+        secondTokenAmount = (minStakingDeposit * (1 + numAgentInstances) * _rewardRatio) / 1e18;
     }
 
     /// @dev Withdraws the reward amount to a service owner.
@@ -116,49 +112,12 @@ contract DualStakingToken {
         // Update the contract balance
         balance -= amount;
 
-        SafeTransferLib.safeTransfer(stakingToken, to, amount);
+        SafeTransferLib.safeTransfer(secondToken, to, amount);
 
         emit Withdraw(to, amount);
     }
 
-    /// @dev Changes contract owner address.
-    /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
-
-        owner = newOwner;
-        emit OwnerUpdated(newOwner);
-    }
-
-    /// @dev Changes staking token params.
-    /// @param newStakingTokenAmount New staking token amount.
-    /// @param newRewardRatio New staking token ratio to OLAS rewards in 1e18 form.
-    function changeStakingTokenParams(uint256 newStakingTokenAmount, uint256 newRewardRatio) external {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for zero values
-        if (newStakingTokenAmount == 0 || newRewardRatio == 0) {
-            revert ZeroValue();
-        }
-
-        stakingTokenAmount = newStakingTokenAmount;
-        rewardRatio = newRewardRatio;
-
-        emit StakingTokenParamsUpdated(newStakingTokenAmount, newRewardRatio);
-    }
-
-    /// @dev Stakes OLAS service Id and required staking token amount.
+    /// @dev Stakes OLAS service Id and required second token amount.
     /// @param serviceId OLAS driven service Id.
     function stake(uint256 serviceId) external {
         // Reentrancy guard
@@ -167,13 +126,17 @@ contract DualStakingToken {
         }
         _locked = 2;
 
+        if (availableRewards == 0) {
+            revert ZeroValue();
+        }
+
         StakerInfo storage stakerInfo = mapStakerInfos[serviceId];
         // Check for existing staker
         if (stakerInfo.account != address(0)) {
             revert();
         }
 
-        uint256 amount = stakingTokenAmount;
+        uint256 amount = secondTokenAmount;
 
         // Record staker info values
         stakerInfo.account = msg.sender;
@@ -184,7 +147,7 @@ contract DualStakingToken {
 
         mapMutisigs[multisig] = true;
 
-        SafeTransferLib.safeTransferFrom(stakingToken, msg.sender, address(this), amount);
+        SafeTransferLib.safeTransferFrom(secondToken, msg.sender, address(this), amount);
 
         IService(serviceRegistry).safeTransferFrom(msg.sender, address(this), serviceId);
 
@@ -215,10 +178,10 @@ contract DualStakingToken {
             IStaking(stakingInstance).checkpoint();
 
         // Process rewards
-        // If there are eligible services, calculate and update staking token rewards
+        // If there are eligible services, calculate and update second token rewards
         uint256 numServices = eligibleServiceIds.length;
-        if (numServices > 0) {
-            uint256 lastAvailableRewards = availableRewards;
+        uint256 lastAvailableRewards = availableRewards;
+        if (numServices > 0 && lastAvailableRewards > 0) {
             uint256 totalRewards;
             for (uint256 i = 0; i < numServices; ++i) {
                 totalRewards += eligibleServiceRewards[i];
@@ -308,7 +271,7 @@ contract DualStakingToken {
         _locked = 1;
     }
 
-    /// @dev Unstakes OLAS service Id and unbonds staking token amount.
+    /// @dev Unstakes OLAS service Id and unbonds second token amount.
     /// @param serviceId OLAS driven service Id.
     function unstake(uint256 serviceId) external {
         // Reentrancy guard
@@ -343,11 +306,10 @@ contract DualStakingToken {
         delete mapStakerInfos[serviceId];
         delete mapMutisigs[multisig];
 
-        // Transfer staking token amount back to the staker
+        // Transfer second token amount back to the staker
         _withdraw(account, stakingAmount);
 
-        // TODO Reward is sent to the service multisig or staker account?
-        // Transfer staking token reward to the service multisig
+        // Transfer second token reward to the service multisig
         if (reward > 0) {
             _withdraw(multisig, reward);
         }
@@ -364,7 +326,7 @@ contract DualStakingToken {
         _locked = 1;
     }
 
-    /// @dev Claims OLAS and staking token rewards.
+    /// @dev Claims OLAS and second token rewards.
     /// @param serviceId OLAS driven service Id.
     function claim(uint256 serviceId) external {
         // Reentrancy guard
@@ -388,8 +350,7 @@ contract DualStakingToken {
         // Get service multisig
         (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
-        // TODO Reward is sent to the service multisig or staker account?
-        // Transfer staking token reward to the service multisig
+        // Transfer second token reward to the service multisig
         if (reward > 0) {
             _withdraw(multisig, reward);
         }
@@ -418,7 +379,7 @@ contract DualStakingToken {
         availableRewards = newAvailableRewards;
 
         // Add to the overall balance
-        SafeTransferLib.safeTransferFrom(stakingToken, msg.sender, address(this), amount);
+        SafeTransferLib.safeTransferFrom(secondToken, msg.sender, address(this), amount);
 
         emit Deposit(msg.sender, amount, newBalance, newAvailableRewards);
 
