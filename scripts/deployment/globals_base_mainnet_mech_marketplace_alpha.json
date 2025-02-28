@@ -19,10 +19,10 @@
   "stakingFactoryAddress":"0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
   "mechMarketplaceAddress":"0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020",
   "livenessRatio":"230481481481481",
-  "mechActivityCheckerAddress":"",
+  "mechActivityCheckerAddress":"0xEE70221cFb894257dF7F5aFA6502Be4A190FcED5",
   "stakingParams":
     {
-      "metadataHash":"",
+      "metadataHash":"0x715642e4e267079de7221becd58d064e9682149f954c6067d653f46466512931",
       "maxNumServices":"10",
       "rewardsPerSecond":"439814814815200",
       "minStakingDeposit":"5000000000000000000000",
@@ -32,11 +32,11 @@
       "timeForEmissions":"2592000",
       "numAgentInstances":"1",
       "agentIds":[],
-      "threshold":"1",
+      "threshold":"0",
       "configHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
       "proxyHash":"0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
       "serviceRegistry":"0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
-      "activityChecker":""
+      "activityChecker":"0xEE70221cFb894257dF7F5aFA6502Be4A190FcED5"
     },
-  "stakingTokenInstanceAddress":""
+  "stakingTokenInstanceAddress":"0xB14Cd66c6c601230EA79fa7Cc072E5E0C2F3A756"
 }
