@@ -319,4 +319,18 @@ contract DualStakingToken is ERC721TokenReceiver {
 
         _locked = 1;
     }
+
+    /// @dev Staticcall to all the other incoming data.
+    fallback() external {
+        address instance = stakingInstance;
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let success := staticcall(gas(), instance, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            if eq(success, 0) {
+                revert(0, returndatasize())
+            }
+            return(0, returndatasize())
+        }
+    }
 }
