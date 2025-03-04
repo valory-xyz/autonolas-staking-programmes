@@ -230,6 +230,14 @@ describe("Staking Dual Token", function () {
                 dualStakingToken.stake(serviceId)
             ).to.be.revertedWithCustomError(dualStakingToken, "AlreadyStaked");
 
+            const instance = await ethers.getContractAt("StakingToken", dualStakingToken.address);
+            const numAgentInstances = await instance.numAgentInstances();
+            expect(numAgentInstances).to.equal(serviceParams.numAgentInstances);
+            const rewardsPerSecond = await instance.rewardsPerSecond();
+            expect(rewardsPerSecond).to.equal(serviceParams.rewardsPerSecond);
+            const activityChecker = await instance.activityChecker();
+            expect(activityChecker).to.equal(serviceParams.activityChecker);
+
             // Restore a previous state of blockchain
             snapshot.restore();
         });
