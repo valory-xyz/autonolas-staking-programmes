@@ -23,7 +23,7 @@ function customExpect(arg1, arg2, log) {
 
 async function main() {
     // TODO - take from tokenomics contract on L1
-    const dispenserLimit = ethers.utils.parseEther("50000");
+    const dispenserLimit = ethers.utils.parseEther("60000");
 
     // Read globals files from "files.txt"
     const fileStream = fs.createReadStream("scripts/audit_staking_setups/files.txt");
