@@ -19,7 +19,7 @@
   "stakingParams":
     {
       "metadataHash":"",
-      "maxNumServices":"50",
+      "maxNumServices":"25",
       "rewardsPerSecond":"41232638888925",
       "minStakingDeposit":"500000000000000000000",
       "minNumStakingPeriods":"3",
