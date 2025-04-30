@@ -19,15 +19,9 @@
   "stakingParams":
     {
       "metadataHash":"",
-<<<<<<< Updated upstream
-      "maxNumServices":"25",
-      "rewardsPerSecond":"41232638888925",
-      "minStakingDeposit":"500000000000000000000",
-=======
       "maxNumServices":"40",
       "rewardsPerSecond":"206163194400000",
       "minStakingDeposit":"2500000000000000000000",
->>>>>>> Stashed changes
       "minNumStakingPeriods":"3",
       "maxNumInactivityPeriods":"2",
       "livenessPeriod":"86400",
