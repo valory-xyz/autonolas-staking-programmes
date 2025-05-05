@@ -6,6 +6,42 @@ import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
 
+interface IEAS {
+    /// @notice A struct representing the arguments of the attestation request.
+    struct AttestationRequestData {
+        address recipient; // The recipient of the attestation.
+        uint64 expirationTime; // The time when the attestation expires (Unix timestamp).
+        bool revocable; // Whether the attestation is revocable.
+        bytes32 refUID; // The UID of the related attestation.
+        bytes data; // Custom attestation data.
+        uint256 value; // An explicit ETH amount to send to the resolver. This is important to prevent accidental user errors.
+    }
+
+    /// @notice A struct representing the full arguments of the attestation request.
+    struct AttestationRequest {
+        bytes32 schema; // The unique identifier of the schema.
+        AttestationRequestData data; // The arguments of the attestation request.
+    }
+
+    /// @notice Attests to a specific schema.
+    /// @param request The arguments of the attestation request.
+    /// @return The UID of the new attestation.
+    ///
+    /// Example:
+    ///     attest({
+    ///         schema: "0facc36681cbe2456019c1b0d1e7bedd6d1d40f6f324bf3dd3a4cef2999200a0",
+    ///         data: {
+    ///             recipient: "0xdEADBeAFdeAdbEafdeadbeafDeAdbEAFdeadbeaf",
+    ///             expirationTime: 0,
+    ///             revocable: true,
+    ///             refUID: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    ///             data: "0xF00D",
+    ///             value: 0
+    ///         }
+    ///     })
+    function attest(AttestationRequest calldata request) external payable returns (bytes32);
+}
+
 // ERC20 token interface
 interface IToken {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -61,6 +97,8 @@ contract DualStakingToken is ERC721TokenReceiver {
     uint256 public immutable stakeRatio;
     // Second token reward ratio to OLAS in 1e18 form
     uint256 public immutable rewardRatio;
+    // EAS contract address
+    address public immutable EAS;
 
     // Number of staked services
     uint256 public numServices;
@@ -70,8 +108,8 @@ contract DualStakingToken is ERC721TokenReceiver {
 
     // Mapping of service Id => staker account address
     mapping(uint256 => address) public mapServiceIdStakers;
-    /// Mapping of staked OLAS service multisigs
-    mapping(address => bool) public mapMutisigs;
+    /// Mapping of sender => (staked OLAS service multisigs, number of attestations)
+    mapping(address => uint256) public mapActiveMutisigAttestations;
 
     /// @dev DualStakingToken constructor.
     /// @param _serviceRegistry Service registry address.
@@ -163,8 +201,8 @@ contract DualStakingToken is ERC721TokenReceiver {
         // Record staker address
         mapServiceIdStakers[serviceId] = msg.sender;
 
-        // Record service multisig as being active in this staking contract
-        mapMutisigs[multisig] = true;
+        // Record service multisig as being active in this staking contract, as reflected in most significant bit
+        mapActiveMutisigAttestations[multisig] = 1 << 255;
 
         // Increase global number of services
         numServices++;
@@ -257,7 +295,7 @@ contract DualStakingToken is ERC721TokenReceiver {
 
         // Clear staker maps
         delete mapServiceIdStakers[serviceId];
-        delete mapMutisigs[multisig];
+        delete mapActiveMutisigAttestations[multisig];
 
         // Decrease global service counter
         numServices--;
@@ -318,6 +356,25 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
 
         _locked = 1;
+    }
+
+    /// @notice Attests to a specific schema.
+    /// @param request The arguments of the attestation request.
+    /// @return The UID of the new attestation.
+    function attest(IEAS.AttestationRequest calldata request) external payable returns (bytes32) {
+        // Upper bits are untouched, so it is safe to just increase the amount of attestations
+        mapActiveMutisigAttestations[msg.sender]++;
+
+        // Attestation call
+        return IEAS(EAS).attest{value: msg.value}(request);
+    }
+
+    /// @dev Gets number of attestations.
+    /// @param account Account address.
+    /// @return Number of attestations.
+    function getNumAttestations(address account) external view returns (uint256) {
+        // Removing most significant bit
+        return mapActiveMutisigAttestations[account] & ((1 << 255) - 1);
     }
 
     /// @dev Staticcall to all the other incoming data.
