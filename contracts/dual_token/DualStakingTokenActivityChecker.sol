@@ -78,6 +78,7 @@ contract DualStakingTokenActivityChecker is StakingActivityChecker {
     ) external view override returns (bool ratioPass) {
         // If the checkpoint was called in the exact same block, the ratio is zero
         // If the current nonce is not greater than the last nonce, the ratio is zero
+        // If the current attestation count is not greater than the last attestation count, the ratio is zero
         if (ts > 0 && curNonces[0] > lastNonces[0] && curNonces[1] > lastNonces[1]) {
             uint256 ratio = ((curNonces[0] - lastNonces[0]) * 1e18) / ts;
             ratioPass = (ratio >= livenessRatio);

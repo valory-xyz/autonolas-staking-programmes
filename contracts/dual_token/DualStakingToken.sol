@@ -6,6 +6,7 @@ import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
 
+// EAS interface
 interface IEAS {
     /// @notice A struct representing the arguments of the attestation request.
     struct AttestationRequestData {
@@ -17,29 +18,45 @@ interface IEAS {
         uint256 value; // An explicit ETH amount to send to the resolver. This is important to prevent accidental user errors.
     }
 
-    /// @notice A struct representing the full arguments of the attestation request.
-    struct AttestationRequest {
-        bytes32 schema; // The unique identifier of the schema.
-        AttestationRequestData data; // The arguments of the attestation request.
+    /// @notice A struct representing ECDSA signature data.
+    struct Signature {
+        uint8 v; // The recovery ID.
+        bytes32 r; // The x-coordinate of the nonce R.
+        bytes32 s; // The signature data.
     }
 
-    /// @notice Attests to a specific schema.
-    /// @param request The arguments of the attestation request.
+    /// @notice A struct representing the full arguments of the full delegated attestation request.
+    struct DelegatedAttestationRequest {
+        bytes32 schema; // The unique identifier of the schema.
+        AttestationRequestData data; // The arguments of the attestation request.
+        Signature signature; // The ECDSA signature data.
+        address attester; // The attesting account.
+        uint64 deadline; // The deadline of the signature/request.
+    }
+    /// @notice Attests to a specific schema via the provided ECDSA signature.
+    /// @param delegatedRequest The arguments of the delegated attestation request.
     /// @return The UID of the new attestation.
     ///
     /// Example:
-    ///     attest({
-    ///         schema: "0facc36681cbe2456019c1b0d1e7bedd6d1d40f6f324bf3dd3a4cef2999200a0",
+    ///     attestByDelegation({
+    ///         schema: '0x8e72f5bc0a8d4be6aa98360baa889040c50a0e51f32dbf0baa5199bd93472ebc',
     ///         data: {
-    ///             recipient: "0xdEADBeAFdeAdbEafdeadbeafDeAdbEAFdeadbeaf",
-    ///             expirationTime: 0,
+    ///             recipient: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    ///             expirationTime: 1673891048,
     ///             revocable: true,
-    ///             refUID: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    ///             data: "0xF00D",
+    ///             refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    ///             data: '0x1234',
     ///             value: 0
-    ///         }
+    ///         },
+    ///         signature: {
+    ///             v: 28,
+    ///             r: '0x148c...b25b',
+    ///             s: '0x5a72...be22'
+    ///         },
+    ///         attester: '0xc5E8740aD971409492b1A63Db8d83025e0Fc427e',
+    ///         deadline: 1673891048
     ///     })
-    function attest(AttestationRequest calldata request) external payable returns (bytes32);
+    function attestByDelegation(DelegatedAttestationRequest calldata delegatedRequest) external payable returns (bytes32);
 }
 
 // ERC20 token interface
@@ -358,15 +375,15 @@ contract DualStakingToken is ERC721TokenReceiver {
         _locked = 1;
     }
 
-    /// @notice Attests to a specific schema.
-    /// @param request The arguments of the attestation request.
+    /// @notice Attests to a specific schema via the provided ECDSA signature.
+    /// @param delegatedRequest The arguments of the delegated attestation request.
     /// @return The UID of the new attestation.
-    function attest(IEAS.AttestationRequest calldata request) external payable returns (bytes32) {
+    function attestByDelegation(DelegatedAttestationRequest calldata delegatedRequest) external payable returns (bytes32) {
         // Upper bits are untouched, so it is safe to just increase the amount of attestations
         mapActiveMutisigAttestations[msg.sender]++;
 
         // Attestation call
-        return IEAS(EAS).attest{value: msg.value}(request);
+        return IEAS(EAS).attestByDelegation{value: msg.value}(delegatedRequest);
     }
 
     /// @dev Gets number of attestations.
