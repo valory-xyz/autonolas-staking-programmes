@@ -2,62 +2,10 @@
 pragma solidity ^0.8.28;
 
 import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
+import {IEAS} from "./interfaces/IEAS.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
-
-// EAS interface
-interface IEAS {
-    /// @notice A struct representing the arguments of the attestation request.
-    struct AttestationRequestData {
-        address recipient; // The recipient of the attestation.
-        uint64 expirationTime; // The time when the attestation expires (Unix timestamp).
-        bool revocable; // Whether the attestation is revocable.
-        bytes32 refUID; // The UID of the related attestation.
-        bytes data; // Custom attestation data.
-        uint256 value; // An explicit ETH amount to send to the resolver. This is important to prevent accidental user errors.
-    }
-
-    /// @notice A struct representing ECDSA signature data.
-    struct Signature {
-        uint8 v; // The recovery ID.
-        bytes32 r; // The x-coordinate of the nonce R.
-        bytes32 s; // The signature data.
-    }
-
-    /// @notice A struct representing the full arguments of the full delegated attestation request.
-    struct DelegatedAttestationRequest {
-        bytes32 schema; // The unique identifier of the schema.
-        AttestationRequestData data; // The arguments of the attestation request.
-        Signature signature; // The ECDSA signature data.
-        address attester; // The attesting account.
-        uint64 deadline; // The deadline of the signature/request.
-    }
-    /// @notice Attests to a specific schema via the provided ECDSA signature.
-    /// @param delegatedRequest The arguments of the delegated attestation request.
-    /// @return The UID of the new attestation.
-    ///
-    /// Example:
-    ///     attestByDelegation({
-    ///         schema: '0x8e72f5bc0a8d4be6aa98360baa889040c50a0e51f32dbf0baa5199bd93472ebc',
-    ///         data: {
-    ///             recipient: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    ///             expirationTime: 1673891048,
-    ///             revocable: true,
-    ///             refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
-    ///             data: '0x1234',
-    ///             value: 0
-    ///         },
-    ///         signature: {
-    ///             v: 28,
-    ///             r: '0x148c...b25b',
-    ///             s: '0x5a72...be22'
-    ///         },
-    ///         attester: '0xc5E8740aD971409492b1A63Db8d83025e0Fc427e',
-    ///         deadline: 1673891048
-    ///     })
-    function attestByDelegation(DelegatedAttestationRequest calldata delegatedRequest) external payable returns (bytes32);
-}
 
 // ERC20 token interface
 interface IToken {
@@ -134,15 +82,17 @@ contract DualStakingToken is ERC721TokenReceiver {
     /// @param _stakingInstance Service staking instance address.
     /// @param _stakeRatio Second token deposit ratio to OLAS in 1e18 form.
     /// @param _rewardRatio Second token reward ratio to OLAS in 1e18 form.
+    /// @param _EAS EAS contract address.
     constructor(
         address _serviceRegistry,
         address _secondToken,
         address _stakingInstance,
         uint256 _stakeRatio,
-        uint256 _rewardRatio
+        uint256 _rewardRatio,
+        address _EAS
     ) {
         // Check for zero addresses
-        if (_serviceRegistry == address(0) || _secondToken == address(0) || _stakingInstance == address(0)) {
+        if (_serviceRegistry == address(0) || _secondToken == address(0) || _stakingInstance == address(0) || _EAS == address(0)) {
             revert ZeroAddress();
         }
 
@@ -156,7 +106,8 @@ contract DualStakingToken is ERC721TokenReceiver {
         stakingInstance = _stakingInstance;
         stakeRatio = _stakeRatio;
         rewardRatio = _rewardRatio;
-
+        EAS = _EAS;
+        
         // Calculate second token amount based on staking instance service information
         uint256 numAgentInstances = IStaking(_stakingInstance).numAgentInstances();
         uint256 minStakingDeposit = IStaking(_stakingInstance).minStakingDeposit();
@@ -378,7 +329,7 @@ contract DualStakingToken is ERC721TokenReceiver {
     /// @notice Attests to a specific schema via the provided ECDSA signature.
     /// @param delegatedRequest The arguments of the delegated attestation request.
     /// @return The UID of the new attestation.
-    function attestByDelegation(DelegatedAttestationRequest calldata delegatedRequest) external payable returns (bytes32) {
+    function attestByDelegation(IEAS.DelegatedAttestationRequest calldata delegatedRequest) external payable returns (bytes32) {
         // Upper bits are untouched, so it is safe to just increase the amount of attestations
         mapActiveMutisigAttestations[msg.sender]++;
 

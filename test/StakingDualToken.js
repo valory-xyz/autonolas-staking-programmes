@@ -4,7 +4,7 @@ const { ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 const safeContracts = require("@gnosis.pm/safe-contracts");
 
-describe("Staking Dual Token", function () {
+describe.only("Staking Dual Token", function () {
     let serviceRegistry;
     let serviceRegistryTokenUtility;
     let operatorWhitelist;
@@ -19,6 +19,7 @@ describe("Staking Dual Token", function () {
     let stakingTokenImplementation;
     let stakingToken;
     let dualStakingToken;
+    let eas;
     let signers;
     let deployer;
     let operator;
@@ -127,9 +128,13 @@ describe("Staking Dual Token", function () {
         const stakingTokenAddress = "0x" + res.logs[0].topics[2].slice(26);
         stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress);
 
+        const EAS = await ethers.getContractFactory("MockEAS");
+        eas = await EAS.deploy();
+        await eas.deployed();
+
         const DualStakingToken = await ethers.getContractFactory("DualStakingToken");
         dualStakingToken = await DualStakingToken.deploy(serviceRegistry.address, secondToken.address,
-            stakingTokenAddress, stakeRatio, rewardRatio);
+            stakingTokenAddress, stakeRatio, rewardRatio, eas.address);
         await dualStakingToken.deployed();
 
         // Set dual staking token
@@ -526,6 +531,228 @@ describe("Staking Dual Token", function () {
             // Check multisig second token rewards are still the same
             secondTokenReward = await secondToken.balanceOf(multisig.address);
             expect(secondTokenReward).to.equal(1);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Restake evicted service", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
+
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
+
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
+
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Try to restake non-evicted service
+            await expect(
+                dualStakingToken.restake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "WrongStakingState");
+
+            // Evict service by making it inactive
+            await helpers.time.increase(maxInactivity);
+
+            // Now try to restake
+            await dualStakingToken.restake(serviceId);
+
+            // Verify service is staked again
+            const stakingState = await stakingToken.getStakingState(serviceId);
+            expect(stakingState).to.equal(0); // 0 is Staked state
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Unstake service", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
+
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
+
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
+
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Try to unstake with wrong account
+            await expect(
+                dualStakingToken.connect(signers[1]).unstake(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
+
+            // Unstake service
+            await dualStakingToken.unstake(serviceId);
+
+            // Verify service is unstaked
+            const stakingState = await stakingToken.getStakingState(serviceId);
+            expect(stakingState).to.equal(1); // 1 is Unstaked state
+
+            // Verify second token was returned
+            const balance = await secondToken.balanceOf(deployer.address);
+            expect(balance).to.equal(initSupply);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Claim rewards", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
+
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
+
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
+
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Wait for some rewards to accumulate
+            await helpers.time.increase(100);
+
+            // Try to claim with wrong account
+            await expect(
+                dualStakingToken.connect(signers[1]).claim(serviceId)
+            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
+
+            // Claim rewards
+            await dualStakingToken.claim(serviceId);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Attestation functionality", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
+
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
+
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
+
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Get number of attestations before
+            const numAttestationsBefore = await dualStakingToken.getNumAttestations(deployer.address);
+            expect(numAttestationsBefore).to.equal(0);
+
+            // Create attestation request
+            const attestationRequest = {
+                schema: HashZero,
+                data: {
+                    recipient: deployer.address,
+                    expirationTime: Math.floor(Date.now() / 1000) + 3600,
+                    revocable: true,
+                    refUID: HashZero,
+                    data: "0x",
+                    value: 0
+                },
+                signature: {
+                    v: 27,
+                    r: HashZero,
+                    s: HashZero
+                },
+                attester: deployer.address,
+                deadline: Math.floor(Date.now() / 1000) + 3600
+            };
+
+            // Attest via the EAS contract
+            await dualStakingToken.attestByDelegation(attestationRequest);
+
+            // Get number of attestations after
+            const numAttestationsAfter = await dualStakingToken.getNumAttestations(deployer.address);
+            expect(numAttestationsAfter).to.equal(1);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Fallback function", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
+
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
+
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
+
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Call fallback function with invalid data
+            await expect(
+                deployer.sendTransaction({
+                    to: dualStakingToken.address,
+                    data: "0x1234"
+                })
+            ).to.be.reverted;
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
+
+        it("Checkpoint functionality", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Fund dualStakingToken contract
+            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
+
+            // Approve service for dual staking token
+            await serviceRegistry.approve(dualStakingToken.address, serviceId);
+
+            // Get second token amount
+            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
+
+            // Approve second token for dual staking token
+            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
+
+            // Stake service + token
+            await dualStakingToken.stake(serviceId);
+
+            // Call checkpoint
+            await dualStakingToken.checkpoint();
 
             // Restore a previous state of blockchain
             snapshot.restore();
