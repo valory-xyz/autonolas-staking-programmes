@@ -20,6 +20,8 @@ error UnauthorizedAccount(address account);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract DualStakingTokenActivityChecker is StakingActivityChecker {
+    event DualStakingTokenUpdated(address indexed dualStakingToken);
+
     // DualStakingToken contract address
     address public dualStakingToken;
     // Temporary owner address
@@ -49,6 +51,8 @@ contract DualStakingTokenActivityChecker is StakingActivityChecker {
 
         // Resets the owner
         owner = address(0);
+
+        emit DualStakingTokenUpdated(_dualStakingToken);
     }
 
     /// @dev Gets service multisig nonces.
