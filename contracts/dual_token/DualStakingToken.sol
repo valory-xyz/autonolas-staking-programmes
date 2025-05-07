@@ -73,7 +73,7 @@ contract DualStakingToken is ERC721TokenReceiver {
 
     // Mapping of service Id => staker account address
     mapping(uint256 => address) public mapServiceIdStakers;
-    /// Mapping of sender => (staked OLAS service multisigs, number of attestations)
+    /// Mapping of OLAS service multisigs => (1 aka staked, number of attestations)
     mapping(address => uint256) public mapActiveMutisigAttestations;
 
     /// @dev DualStakingToken constructor.
