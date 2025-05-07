@@ -107,7 +107,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         stakeRatio = _stakeRatio;
         rewardRatio = _rewardRatio;
         EAS = _EAS;
-        
+
         // Calculate second token amount based on staking instance service information
         uint256 numAgentInstances = IStaking(_stakingInstance).numAgentInstances();
         uint256 minStakingDeposit = IStaking(_stakingInstance).minStakingDeposit();
@@ -275,9 +275,9 @@ contract DualStakingToken is ERC721TokenReceiver {
         uint256 reward = IStaking(stakingInstance).unstake(serviceId);
 
         // Check for non-zero OLAS reward
-        // No revert if reward is zero as there might be rewards from OLAS staking
         if (reward > 0) {
             // Claim second token reward
+            // No revert if second token reward is zero as there might be rewards from OLAS staking
             _claim(multisig, reward);
 
             emit Claimed(serviceId, reward);
@@ -309,19 +309,17 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
 
         // Claim OLAS service reward
+        // Note that claim is reverted if there is no OLAS reward
         uint256 reward = IStaking(stakingInstance).claim(serviceId);
 
-        // Check for non-zero OLAS reward
-        // No revert if reward is zero as there might be rewards from OLAS staking
-        if (reward > 0) {
-            // Get service multisig
-            (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
+        // Get service multisig
+        (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
-            // Claim second token reward
-            _claim(multisig, reward);
+        // Claim second token reward
+        // No revert if second token reward is zero
+        _claim(multisig, reward);
 
-            emit Claimed(serviceId, reward);
-        }
+        emit Claimed(serviceId, reward);
 
         _locked = 1;
     }

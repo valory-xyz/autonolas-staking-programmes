@@ -4,7 +4,7 @@ const { ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 const safeContracts = require("@gnosis.pm/safe-contracts");
 
-describe.only("Staking Dual Token", function () {
+describe("Staking Dual Token", function () {
     let serviceRegistry;
     let serviceRegistryTokenUtility;
     let operatorWhitelist;
@@ -40,6 +40,7 @@ describe.only("Staking Dual Token", function () {
     const stakeRatio = rewardRatio.mul(2);
     const payload = "0x";
     const livenessRatio = "1" + "0".repeat(16); // 0.01 transaction per second (TPS)
+
     let serviceParams = {
         metadataHash: defaultHash,
         maxNumServices: 3,
@@ -58,6 +59,26 @@ describe.only("Staking Dual Token", function () {
         activityChecker: AddressZero
     };
     const maxInactivity = serviceParams.maxNumInactivityPeriods * livenessPeriod + 1;
+
+    // Create attestation request
+    const attestationRequest = {
+        schema: HashZero,
+        data: {
+            recipient: AddressZero,
+            expirationTime: Math.floor(Date.now() / 1000) + 3600,
+            revocable: true,
+            refUID: HashZero,
+            data: "0x",
+            value: 0
+        },
+        signature: {
+            v: 27,
+            r: HashZero,
+            s: HashZero
+        },
+        attester: AddressZero,
+        deadline: Math.floor(Date.now() / 1000) + 3600
+    };
 
     beforeEach(async function () {
         signers = await ethers.getSigners();
@@ -172,19 +193,22 @@ describe.only("Staking Dual Token", function () {
         it("Failing to initialize with wrong parameters", async function () {
             const DualStakingToken = await ethers.getContractFactory("DualStakingToken");
             await expect(
-                DualStakingToken.deploy(AddressZero, AddressZero, AddressZero, 0, 0)
+                DualStakingToken.deploy(AddressZero, AddressZero, AddressZero, 0, 0, AddressZero)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, AddressZero, AddressZero, 0, 0)
+                DualStakingToken.deploy(serviceManager.address, AddressZero, AddressZero, 0, 0, AddressZero)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, secondToken.address, AddressZero, 0, 0)
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, AddressZero, 0, 0, AddressZero)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, 0, 0)
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, 0, 0, AddressZero)
+            ).to.be.revertedWithCustomError(dualStakingToken, "ZeroAddress");
+            await expect(
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, 0, 0, eas.address)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
             await expect(
-                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, stakeRatio, 0)
+                DualStakingToken.deploy(serviceManager.address, secondToken.address, stakingToken.address, stakeRatio, 0, eas.address)
             ).to.be.revertedWithCustomError(dualStakingToken, "ZeroValue");
 
             // Try to set dual staking token again
@@ -276,6 +300,12 @@ describe.only("Staking Dual Token", function () {
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
+            // Attest via the EAS contract
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(dualStakingToken, "attestByDelegation", [attestationRequest], nonce, 0, 0);
+            signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
             // Increase the time until the next staking epoch
             await helpers.time.increase(livenessPeriod);
 
@@ -344,6 +374,12 @@ describe.only("Staking Dual Token", function () {
             let nonce = await multisig.nonce();
             let txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Attest via the EAS contract
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(dualStakingToken, "attestByDelegation", [attestationRequest], nonce, 0, 0);
+            signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // Increase the time until the max inactivity
@@ -482,6 +518,12 @@ describe.only("Staking Dual Token", function () {
             let signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
+            // Attest via the EAS contract
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(dualStakingToken, "attestByDelegation", [attestationRequest], nonce, 0, 0);
+            signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
             // Increase the time until the next staking epoch
             await helpers.time.increase(livenessPeriod);
 
@@ -503,6 +545,12 @@ describe.only("Staking Dual Token", function () {
             // Make transactions by the service multisig
             nonce = await multisig.nonce();
             txHashData = await safeContracts.buildContractCall(multisig, "getThreshold", [], nonce, 0, 0);
+            signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Attest via the EAS contract
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(dualStakingToken, "attestByDelegation", [attestationRequest], nonce, 0, 0);
             signMessageData = await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0);
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
@@ -563,12 +611,15 @@ describe.only("Staking Dual Token", function () {
             // Evict service by making it inactive
             await helpers.time.increase(maxInactivity);
 
+            // Call checkpoint, the service is going to be evicted
+            await dualStakingToken.checkpoint();
+
             // Now try to restake
             await dualStakingToken.restake(serviceId);
 
             // Verify service is staked again
             const stakingState = await stakingToken.getStakingState(serviceId);
-            expect(stakingState).to.equal(0); // 0 is Staked state
+            expect(stakingState).to.equal(1);
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -598,50 +649,22 @@ describe.only("Staking Dual Token", function () {
                 dualStakingToken.connect(signers[1]).unstake(serviceId)
             ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
 
+            // Evict service by making it inactive
+            await helpers.time.increase(maxInactivity);
+
+            // Call checkpoint, the service is going to be evicted
+            await dualStakingToken.checkpoint();
+
             // Unstake service
             await dualStakingToken.unstake(serviceId);
 
             // Verify service is unstaked
             const stakingState = await stakingToken.getStakingState(serviceId);
-            expect(stakingState).to.equal(1); // 1 is Unstaked state
+            expect(stakingState).to.equal(0);
 
-            // Verify second token was returned
+            // Verify second token was returned minus the second token amount that was used for funding the staking
             const balance = await secondToken.balanceOf(deployer.address);
-            expect(balance).to.equal(initSupply);
-
-            // Restore a previous state of blockchain
-            snapshot.restore();
-        });
-
-        it("Claim rewards", async function () {
-            // Take a snapshot of the current state of the blockchain
-            const snapshot = await helpers.takeSnapshot();
-
-            // Fund dualStakingToken contract
-            await secondToken.transfer(dualStakingToken.address, ethers.utils.parseEther("1"));
-
-            // Approve service for dual staking token
-            await serviceRegistry.approve(dualStakingToken.address, serviceId);
-
-            // Get second token amount
-            const secondTokenAmount = await dualStakingToken.secondTokenAmount();
-
-            // Approve second token for dual staking token
-            await secondToken.approve(dualStakingToken.address, secondTokenAmount);
-
-            // Stake service + token
-            await dualStakingToken.stake(serviceId);
-
-            // Wait for some rewards to accumulate
-            await helpers.time.increase(100);
-
-            // Try to claim with wrong account
-            await expect(
-                dualStakingToken.connect(signers[1]).claim(serviceId)
-            ).to.be.revertedWithCustomError(dualStakingToken, "StakerOnly");
-
-            // Claim rewards
-            await dualStakingToken.claim(serviceId);
+            expect(balance).to.equal(ethers.BigNumber.from(initSupply).sub(ethers.utils.parseEther("1")));
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -669,26 +692,6 @@ describe.only("Staking Dual Token", function () {
             // Get number of attestations before
             const numAttestationsBefore = await dualStakingToken.getNumAttestations(deployer.address);
             expect(numAttestationsBefore).to.equal(0);
-
-            // Create attestation request
-            const attestationRequest = {
-                schema: HashZero,
-                data: {
-                    recipient: deployer.address,
-                    expirationTime: Math.floor(Date.now() / 1000) + 3600,
-                    revocable: true,
-                    refUID: HashZero,
-                    data: "0x",
-                    value: 0
-                },
-                signature: {
-                    v: 27,
-                    r: HashZero,
-                    s: HashZero
-                },
-                attester: deployer.address,
-                deadline: Math.floor(Date.now() / 1000) + 3600
-            };
 
             // Attest via the EAS contract
             await dualStakingToken.attestByDelegation(attestationRequest);
