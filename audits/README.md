@@ -21,3 +21,7 @@ contracts is located in this folder: [internal audit 3](https://github.com/valor
 ### Internal audit
 An internal re-audit with a focus on dual token contracts
 contracts is located in this folder: [internal audit 4](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal4).
+
+### Internal audit
+An internal audit with a focus on BIO token contracts
+contracts is located in this folder: [internal audit 5](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal5).
