@@ -30,7 +30,7 @@ mapActiveMutisigAttestations[multisig] = 1 << 255; - Erases all bits except the 
 Safe counter:
 mapActiveMutisigAttestations[multisig] |= 1 << 255; - Sets only the high bit but leaves the low bits alone.
 ```
-[x] The former is used - reset the counter
+[x] The later is used - the counter is not reset
 
 
 
