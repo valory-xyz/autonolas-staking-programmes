@@ -170,6 +170,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         mapServiceIdStakers[serviceId] = msg.sender;
 
         // Record service multisig as being active in this staking contract, as reflected in most significant bit
+        // Note that this resets the service multisig counter as attestations were called without service being staked
         mapActiveMutisigAttestations[multisig] = 1 << 255;
 
         // Increase global number of services
