@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
+import {IEAS} from "./interfaces/IEAS.sol";
 import {IService} from "./interfaces/IService.sol";
 import {IStaking} from "./interfaces/IStaking.sol";
 import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
@@ -61,6 +62,8 @@ contract DualStakingToken is ERC721TokenReceiver {
     uint256 public immutable stakeRatio;
     // Second token reward ratio to OLAS in 1e18 form
     uint256 public immutable rewardRatio;
+    // EAS contract address
+    address public immutable EAS;
 
     // Number of staked services
     uint256 public numServices;
@@ -70,8 +73,8 @@ contract DualStakingToken is ERC721TokenReceiver {
 
     // Mapping of service Id => staker account address
     mapping(uint256 => address) public mapServiceIdStakers;
-    /// Mapping of staked OLAS service multisigs
-    mapping(address => bool) public mapMutisigs;
+    /// Mapping of OLAS service multisigs => (1 aka staked, number of attestations)
+    mapping(address => uint256) public mapActiveMutisigAttestations;
 
     /// @dev DualStakingToken constructor.
     /// @param _serviceRegistry Service registry address.
@@ -79,15 +82,17 @@ contract DualStakingToken is ERC721TokenReceiver {
     /// @param _stakingInstance Service staking instance address.
     /// @param _stakeRatio Second token deposit ratio to OLAS in 1e18 form.
     /// @param _rewardRatio Second token reward ratio to OLAS in 1e18 form.
+    /// @param _EAS EAS contract address.
     constructor(
         address _serviceRegistry,
         address _secondToken,
         address _stakingInstance,
         uint256 _stakeRatio,
-        uint256 _rewardRatio
+        uint256 _rewardRatio,
+        address _EAS
     ) {
         // Check for zero addresses
-        if (_serviceRegistry == address(0) || _secondToken == address(0) || _stakingInstance == address(0)) {
+        if (_serviceRegistry == address(0) || _secondToken == address(0) || _stakingInstance == address(0) || _EAS == address(0)) {
             revert ZeroAddress();
         }
 
@@ -101,6 +106,7 @@ contract DualStakingToken is ERC721TokenReceiver {
         stakingInstance = _stakingInstance;
         stakeRatio = _stakeRatio;
         rewardRatio = _rewardRatio;
+        EAS = _EAS;
 
         // Calculate second token amount based on staking instance service information
         uint256 numAgentInstances = IStaking(_stakingInstance).numAgentInstances();
@@ -163,8 +169,9 @@ contract DualStakingToken is ERC721TokenReceiver {
         // Record staker address
         mapServiceIdStakers[serviceId] = msg.sender;
 
-        // Record service multisig as being active in this staking contract
-        mapMutisigs[multisig] = true;
+        // Record service multisig as being active in this staking contract, as reflected in most significant bit
+        // Note that this does not reset the service multisig attestations counter
+        mapActiveMutisigAttestations[multisig] |= 1 << 255;
 
         // Increase global number of services
         numServices++;
@@ -257,7 +264,8 @@ contract DualStakingToken is ERC721TokenReceiver {
 
         // Clear staker maps
         delete mapServiceIdStakers[serviceId];
-        delete mapMutisigs[multisig];
+        // Remove upper bits signaling that the service is unstaked and the multisig is inactive for staking activity
+        mapActiveMutisigAttestations[multisig] &= ((1 << 255) - 1);
 
         // Decrease global service counter
         numServices--;
@@ -269,9 +277,9 @@ contract DualStakingToken is ERC721TokenReceiver {
         uint256 reward = IStaking(stakingInstance).unstake(serviceId);
 
         // Check for non-zero OLAS reward
-        // No revert if reward is zero as there might be rewards from OLAS staking
         if (reward > 0) {
             // Claim second token reward
+            // No revert if second token reward is zero as there might be rewards from OLAS staking
             _claim(multisig, reward);
 
             emit Claimed(serviceId, reward);
@@ -303,21 +311,38 @@ contract DualStakingToken is ERC721TokenReceiver {
         }
 
         // Claim OLAS service reward
+        // Note that claim is reverted if there is no OLAS reward
         uint256 reward = IStaking(stakingInstance).claim(serviceId);
 
-        // Check for non-zero OLAS reward
-        // No revert if reward is zero as there might be rewards from OLAS staking
-        if (reward > 0) {
-            // Get service multisig
-            (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
+        // Get service multisig
+        (, address multisig, , , , , ) = IService(serviceRegistry).mapServices(serviceId);
 
-            // Claim second token reward
-            _claim(multisig, reward);
+        // Claim second token reward
+        // No revert if second token reward is zero
+        _claim(multisig, reward);
 
-            emit Claimed(serviceId, reward);
-        }
+        emit Claimed(serviceId, reward);
 
         _locked = 1;
+    }
+
+    /// @notice Attests to a specific schema via the provided ECDSA signature.
+    /// @param delegatedRequest The arguments of the delegated attestation request.
+    /// @return The UID of the new attestation.
+    function attestByDelegation(IEAS.DelegatedAttestationRequest calldata delegatedRequest) external payable returns (bytes32) {
+        // Upper bits are untouched, so it is safe to just increase the amount of attestations
+        mapActiveMutisigAttestations[msg.sender]++;
+
+        // Attestation call
+        return IEAS(EAS).attestByDelegation{value: msg.value}(delegatedRequest);
+    }
+
+    /// @dev Gets number of attestations.
+    /// @param account Account address.
+    /// @return Number of attestations.
+    function getNumAttestations(address account) external view returns (uint256) {
+        // Removing most significant bit
+        return mapActiveMutisigAttestations[account] & ((1 << 255) - 1);
     }
 
     /// @dev Staticcall to all the other incoming data.
