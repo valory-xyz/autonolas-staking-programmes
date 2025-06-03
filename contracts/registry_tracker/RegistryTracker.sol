@@ -98,7 +98,7 @@ contract RegistryTracker {
 
     /// @dev RegistryTracker constructor.
     /// @param _serviceRegistry Service registry address.
-    /// @param _rewardPeriod Second token reward ratio to OLAS in 1e18 form.
+    /// @param _rewardPeriod Reward period in seconds.
     constructor(address _serviceRegistry, uint256 _rewardPeriod) {
         // Check for zero addresses
         if (_serviceRegistry == address(0)) {
