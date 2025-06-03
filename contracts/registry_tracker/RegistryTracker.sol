@@ -135,7 +135,7 @@ contract RegistryTracker {
 
     /// @dev Changes reward period.
     /// @param newRewardPeriod New reward period value.
-    function changeOwner(uint256 newRewardPeriod) external {
+    function changeRewardPeriod(uint256 newRewardPeriod) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert UnauthorizedAccount(msg.sender);
