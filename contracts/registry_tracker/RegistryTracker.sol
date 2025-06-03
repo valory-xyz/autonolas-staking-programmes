@@ -78,6 +78,8 @@ error ReentrancyGuard();
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract RegistryTracker {
+    event OwnerUpdated(address indexed owner);
+    event RewardPeriodUpdated(uint256 rewardPeriod);
     event ServiceMultisigRegistered(address indexed multisig, uint256 indexed serviceId);
 
     // Service registry address
@@ -97,10 +99,7 @@ contract RegistryTracker {
     /// @dev RegistryTracker constructor.
     /// @param _serviceRegistry Service registry address.
     /// @param _rewardPeriod Second token reward ratio to OLAS in 1e18 form.
-    constructor(
-        address _serviceRegistry,
-        uint256 _rewardPeriod
-    ) {
+    constructor(address _serviceRegistry, uint256 _rewardPeriod) {
         // Check for zero addresses
         if (_serviceRegistry == address(0)) {
             revert ZeroAddress();
@@ -115,6 +114,40 @@ contract RegistryTracker {
         rewardPeriod = _rewardPeriod;
 
         owner = msg.sender;
+    }
+
+    /// @dev Changes contract owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        // Check for zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes reward period.
+    /// @param newRewardPeriod New reward period value.
+    function changeOwner(uint256 newRewardPeriod) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        // Check for zero value
+        if (newRewardPeriod == 0) {
+            revert ZeroAddress();
+        }
+
+        rewardPeriod = newRewardPeriod;
+        emit RewardPeriodUpdated(newRewardPeriod);
     }
 
     /// @dev Registers service multisig for registration rewards.
