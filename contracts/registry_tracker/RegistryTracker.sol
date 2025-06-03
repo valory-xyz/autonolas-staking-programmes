@@ -208,9 +208,9 @@ contract RegistryTracker {
         // Get service multisig registration ts
         uint256 ts = mapMultisigRegisteringTime[multisig];
 
-        // Check for ts
+        // Check for multisig registration
         if (ts == 0) {
-            revert ZeroValue();
+            return false;
         }
 
         // Eligibility counts from ts until ts + rewardPeriod
