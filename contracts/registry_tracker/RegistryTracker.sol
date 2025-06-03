@@ -1,42 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-// Service registry related interface
-interface IServiceRegistry {
-    enum ServiceState {
-        NonExistent,
-        PreRegistration,
-        ActiveRegistration,
-        FinishedRegistration,
-        Deployed,
-        TerminatedBonded
-    }
-
-    /// @dev Gets the service instance from the map of services.
-    /// @param serviceId Service Id.
-    /// @return securityDeposit Registration activation deposit.
-    /// @return multisig Service multisig address.
-    /// @return configHash IPFS hashes pointing to the config metadata.
-    /// @return threshold Agent instance signers threshold.
-    /// @return maxNumAgentInstances Total number of agent instances.
-    /// @return numAgentInstances Actual number of agent instances.
-    /// @return state Service state.
-    function mapServices(uint256 serviceId) external view returns (uint96 securityDeposit, address multisig,
-        bytes32 configHash, uint32 threshold, uint32 maxNumAgentInstances, uint32 numAgentInstances, ServiceState state);
-
-    /// @dev Gets the owner of the token Id.
-    /// @param tokenId Token Id.
-    /// @return Token Id owner address.
-    function ownerOf(uint256 tokenId) external view returns (address);
-}
-
 // Staking interface
 interface IStaking {
+    // Service Info struct
+    struct ServiceInfo {
+        // Service multisig address
+        address multisig;
+        // Service owner
+        address owner;
+        // Service multisig nonces
+        uint256[] nonces;
+        // Staking start time
+        uint256 tsStart;
+        // Accumulated service staking reward
+        uint256 reward;
+        // Accumulated inactivity that might lead to the service eviction
+        uint256 inactivity;
+    }
+
     enum StakingState {
         Unstaked,
         Staked,
         Evicted
     }
+
+    // Mapping of serviceId => staking service info
+    function mapServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
 
     /// @dev Gets the service staking state.
     /// @param serviceId.
@@ -53,11 +43,6 @@ error ZeroValue();
 /// @dev Account is unauthorized.
 /// @param account Account address.
 error UnauthorizedAccount(address account);
-
-/// @dev Wrong service state.
-/// @param serviceId Service Id.
-/// @param state Service state.
-error WrongServiceState(uint256 serviceId, IServiceRegistry.ServiceState state);
 
 /// @dev Service Id is already registered.
 /// @param multisig Service multisig address.
@@ -160,29 +145,17 @@ contract RegistryTracker {
         }
         _locked = 2;
 
-        // Get service multisig and state
-        (, address multisig, , , , , IServiceRegistry.ServiceState serviceState) =
-            IServiceRegistry(serviceRegistry).mapServices(serviceId);
+        // Get service multisig and owner
+        IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).mapServiceInfo(serviceId);
 
         // Check for multisig address
-        if (multisig == address(0)) {
+        if (serviceInfo.multisig == address(0)) {
             revert ZeroAddress();
         }
 
-        // Check for service state
-        if (serviceState != IServiceRegistry.ServiceState.Deployed) {
-            revert WrongServiceState(serviceId, serviceState);
-        }
-
         // Check for sender access
-        if (msg.sender != multisig) {
-            // Get service owner
-            address serviceOwner = IServiceRegistry(serviceRegistry).ownerOf(serviceId);
-
-            // Check for service owner
-            if (msg.sender != serviceOwner) {
-                revert UnauthorizedAccount(msg.sender);
-            }
+        if (msg.sender != serviceInfo.multisig && msg.sender != serviceInfo.owner) {
+            revert UnauthorizedAccount(msg.sender);
         }
 
         // Get service staking state
@@ -192,12 +165,12 @@ contract RegistryTracker {
         }
 
         // Check for previous registration
-        if (mapMultisigRegisteringTime[multisig] > 0) {
-            revert AlreadyRegistered(multisig, serviceId);
+        if (mapMultisigRegisteringTime[serviceInfo.multisig] > 0) {
+            revert AlreadyRegistered(serviceInfo.multisig, serviceId);
         }
-        mapMultisigRegisteringTime[multisig] = block.timestamp;
+        mapMultisigRegisteringTime[serviceInfo.multisig] = block.timestamp;
 
-        emit ServiceMultisigRegistered(multisig, serviceId);
+        emit ServiceMultisigRegistered(serviceInfo.multisig, serviceId);
 
         _locked = 1;
     }
