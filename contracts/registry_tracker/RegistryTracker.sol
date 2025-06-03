@@ -214,6 +214,6 @@ contract RegistryTracker {
         }
 
         // Eligibility counts from ts until ts + rewardPeriod
-        return (block.timestamp >= ts + rewardPeriod);
+        return (block.timestamp <= ts + rewardPeriod);
     }
 }
