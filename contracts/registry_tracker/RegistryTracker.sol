@@ -19,6 +19,16 @@ interface IStaking {
         uint256 inactivity;
     }
 
+    // Instance params struct
+    struct InstanceParams {
+        // Implementation of a created proxy instance
+        address implementation;
+        // Instance deployer
+        address deployer;
+        // Instance status flag
+        bool isEnabled;
+    }
+
     enum StakingState {
         Unstaked,
         Staked,
@@ -33,13 +43,24 @@ interface IStaking {
     function checkpoint() external returns (uint256[] memory serviceIds, uint256[] memory eligibleServiceIds,
         uint256[] memory eligibleServiceRewards, uint256[] memory evictServiceIds);
 
-    // Mapping of serviceId => staking service info
+    /// @dev Gets staking service info.
+    /// @param serviceId Service Id.
     function mapServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
+
+    /// @dev Gets service registry address.
+    function serviceRegistry() external view returns(address);
+
+    /// @dev Gets activity checker address.
+    function activityChecker() external view returns(address);
 
     /// @dev Gets the service staking state.
     /// @param serviceId.
     /// @return stakingState Staking state of the service.
     function getStakingState(uint256 serviceId) external view returns (StakingState stakingState);
+
+    /// @dev Gets staking instance params.
+    /// @param instance Staking instance address.
+    function mapInstanceParams(address instance) external view returns(InstanceParams memory);
 }
 
 /// @dev Zero address.
@@ -57,6 +78,10 @@ error UnauthorizedAccount(address account);
 /// @param serviceId Service Id.
 error AlreadyRegistered(address multisig, uint256 serviceId);
 
+/// @dev Wrong staking instance.
+/// @param stakingInstance Staking instance address.
+error WrongStakingInstance(address stakingInstance);
+
 /// @dev Wrong service staking state.
 /// @param serviceId Service Id.
 /// @param stakingInstance Staking instance address.
@@ -73,10 +98,13 @@ error ReentrancyGuard();
 contract RegistryTracker {
     event OwnerUpdated(address indexed owner);
     event RewardPeriodUpdated(uint256 rewardPeriod);
+    event ActivityCheckerHashesWhitelisted(bytes32[] activityCheckerHashes);
     event ServiceMultisigRegistered(address indexed multisig, uint256 indexed serviceId);
 
     // Service registry address
     address public immutable serviceRegistry;
+    // Staking factory address
+    address public immutable stakingFactory;
     // Reward period in seconds
     uint256 public rewardPeriod;
 
@@ -86,15 +114,18 @@ contract RegistryTracker {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    /// Mapping of service multisigs => timestamp of multisig registration
+    // Mapping of service multisigs => timestamp of multisig registration
     mapping(address => uint256) public mapMultisigRegisteringTime;
+    // Mapping of activity checker hash => whitelisted status
+    mapping(bytes32 => bool) public mapActivityCheckerHashes;
 
     /// @dev RegistryTracker constructor.
     /// @param _serviceRegistry Service registry address.
+    /// @param _stakingFactory Staking factory address.
     /// @param _rewardPeriod Reward period in seconds.
-    constructor(address _serviceRegistry, uint256 _rewardPeriod) {
+    constructor(address _serviceRegistry, address _stakingFactory, uint256 _rewardPeriod) {
         // Check for zero addresses
-        if (_serviceRegistry == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0)) {
             revert ZeroAddress();
         }
 
@@ -104,6 +135,7 @@ contract RegistryTracker {
         }
 
         serviceRegistry = _serviceRegistry;
+        stakingFactory = _stakingFactory;
         rewardPeriod = _rewardPeriod;
 
         owner = msg.sender;
@@ -143,6 +175,28 @@ contract RegistryTracker {
         emit RewardPeriodUpdated(newRewardPeriod);
     }
 
+    /// @dev Whitelists activity checker hashes.
+    /// @notice Whitelisting is not reversible, since it is not desirable to drop support of whitelisted hashes.
+    /// @param activityCheckerHashes Set of activity checker hashes.
+    function whitelistActivityCheckerHashes(bytes32[] memory activityCheckerHashes) external {
+        // Check the contract ownership
+        if (owner != msg.sender) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        // Whitelist activity checker hashes
+        for (uint256 i = 0; i < activityCheckerHashes.length; ++i) {
+            // Check for zero values
+            if (activityCheckerHashes[i] == 0) {
+                revert ZeroValue();
+            }
+
+            mapActivityCheckerHashes[activityCheckerHashes[i]] = true;
+        }
+
+        emit ActivityCheckerHashesWhitelisted(activityCheckerHashes);
+    }
+
     /// @dev Registers service multisig for registration rewards.
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance address.
@@ -166,10 +220,29 @@ contract RegistryTracker {
             revert UnauthorizedAccount(msg.sender);
         }
 
+        // Check for service registry address
+        if (serviceRegistry != IStaking(stakingInstance).serviceRegistry()) {
+            revert WrongStakingInstance(stakingInstance);
+        }
+
+        // Check for staking factory verification
+        IStaking.InstanceParams memory instanceParams = IStaking(stakingFactory).mapInstanceParams(stakingInstance);
+        if (instanceParams.implementation == address(0)) {
+            revert WrongStakingInstance(stakingInstance);
+        }
+
         // Get service staking state
         IStaking.StakingState stakingState = IStaking(stakingInstance).getStakingState(serviceId);
         if (stakingState != IStaking.StakingState.Staked) {
             revert WrongStakingState(serviceId, stakingInstance, stakingState);
+        }
+
+        // Get activity checker address
+        address activityChecker = IStaking(stakingInstance).activityChecker();
+        // Check that the activity checker address corresponds to the authorized bytecode hash
+        bytes32 activityCheckerHash = keccak256(activityChecker.code);
+        if (!mapActivityCheckerHashes[activityCheckerHash]) {
+            revert WrongStakingInstance(stakingInstance);
         }
 
         // Check for previous registration
