@@ -69,6 +69,9 @@ error ZeroAddress();
 /// @dev Zero value.
 error ZeroValue();
 
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
+
 /// @dev Account is unauthorized.
 /// @param account Account address.
 error UnauthorizedAccount(address account);
@@ -97,9 +100,13 @@ error ReentrancyGuard();
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract RegistryTracker {
     event OwnerUpdated(address indexed owner);
+    event ImplementationUpdated(address indexed implementation);
     event RewardPeriodUpdated(uint256 rewardPeriod);
     event ActivityCheckerHashesWhitelisted(bytes32[] activityCheckerHashes);
     event ServiceMultisigRegistered(address indexed multisig, uint256 indexed serviceId);
+
+    // Code position in storage is keccak256("REGISTRY_TRACKER_PROXY") = "0x74d7566dbc76da138d8eaf64f2774351bdfd8119d17c7d6332c2dc73d31d555a"
+    bytes32 public constant REGISTRY_TRACKER_PROXY = 0x74d7566dbc76da138d8eaf64f2774351bdfd8119d17c7d6332c2dc73d31d555a;
 
     // Service registry address
     address public immutable serviceRegistry;
@@ -112,7 +119,7 @@ contract RegistryTracker {
     address public owner;
 
     // Reentrancy lock
-    uint256 internal _locked = 1;
+    uint256 internal _locked;
 
     // Mapping of service multisigs => timestamp of multisig registration
     mapping(address => uint256) public mapMultisigRegisteringTime;
@@ -122,23 +129,33 @@ contract RegistryTracker {
     /// @dev RegistryTracker constructor.
     /// @param _serviceRegistry Service registry address.
     /// @param _stakingFactory Staking factory address.
-    /// @param _rewardPeriod Reward period in seconds.
-    constructor(address _serviceRegistry, address _stakingFactory, uint256 _rewardPeriod) {
+    constructor(address _serviceRegistry, address _stakingFactory) {
         // Check for zero addresses
         if (_serviceRegistry == address(0) || _stakingFactory == address(0)) {
             revert ZeroAddress();
         }
 
-        // Check for zero values
+        serviceRegistry = _serviceRegistry;
+        stakingFactory = _stakingFactory;
+    }
+
+    /// @dev Initializes contract proxy.
+    /// @param _rewardPeriod Reward period in seconds.
+    function initialize(uint256 _rewardPeriod) external {
+        // Check for already initialized
+        if (owner != address(0)) {
+            revert AlreadyInitialized();
+        }
+
+        // Check for zero value
         if (_rewardPeriod == 0) {
             revert ZeroValue();
         }
 
-        serviceRegistry = _serviceRegistry;
-        stakingFactory = _stakingFactory;
         rewardPeriod = _rewardPeriod;
-
         owner = msg.sender;
+
+        _locked = 1;
     }
 
     /// @dev Changes contract owner address.
@@ -156,6 +173,27 @@ contract RegistryTracker {
 
         owner = newOwner;
         emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes the contributors implementation contract address.
+    /// @param newImplementation New implementation contract address.
+    function changeImplementation(address newImplementation) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        // Check for zero address
+        if (newImplementation == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Store the contributors implementation address
+        assembly {
+            sstore(REGISTRY_TRACKER_PROXY, newImplementation)
+        }
+
+        emit ImplementationUpdated(newImplementation);
     }
 
     /// @dev Changes reward period.
