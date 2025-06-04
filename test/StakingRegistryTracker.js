@@ -18,7 +18,6 @@ describe("Staking Registry Tracker", function () {
     let registryTracker;
     let registryTrackerProxy;
     let registryTrackerActivityChecker;
-    let contributeManager;
     let stakingTokenImplementation;
     let stakingToken;
     let signers;
@@ -32,16 +31,12 @@ describe("Staking Registry Tracker", function () {
     const regDeposit = 1000;
     const regBond = 1000;
     const serviceId = 1;
-    const agentId = 1;
-    let socialId = 1;
     const agentIds = [1];
     const agentParams = [[1, regBond]];
     const threshold = 1;
     const livenessPeriod = 10; // Ten seconds
     const initSupply = "5" + "0".repeat(26);
-    const refundFactor = ethers.utils.parseEther("1.3");
     const payload = "0x";
-    const livenessRatio = "1" + "0".repeat(16); // 0.01 transaction per second (TPS)
     let serviceParams = {
         metadataHash: defaultHash,
         maxNumServices: 3,
@@ -463,8 +458,6 @@ describe("Staking Registry Tracker", function () {
 
             // Stake the service
             await stakingToken.stake(serviceId);
-
-            const serviceInfo = await stakingToken.getServiceInfo(serviceId);
 
             // Move time forward past reward period
             await helpers.time.increase(rewardPeriod + 1);
