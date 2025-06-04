@@ -18,7 +18,7 @@
   "stakingFactoryAddress":"0xb0228CA253A88Bc8eb4ca70BCAC8f87b381f4700",
   "stakingParams":
     {
-      "metadataHash":"",
+      "metadataHash":"0xf4595a37c90dba2f78042e41882dedabe74a4df2c0bc812b3f0428c5f723c27e",
       "maxNumServices":"50",
       "rewardsPerSecond":"439180618975140",
       "minStakingDeposit":"5000000000000000000000",
@@ -34,5 +34,5 @@
       "serviceRegistry":"0x9338b5153AE39BB89f50468E608eD9d764B755fD",
       "activityChecker":"0xBbc20416463213780BfDa6a7bDda7a640e70cF7b"
     },
-  "stakingTokenInstanceAddress":""
+  "stakingTokenInstanceAddress":"0xaaEcdf4d0CBd6Ca0622892Ac6044472f3912A5f3"
 }
