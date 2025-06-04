@@ -45,7 +45,7 @@ interface IStaking {
 
     /// @dev Gets staking service info.
     /// @param serviceId Service Id.
-    function mapServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
+    function getServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
 
     /// @dev Gets service registry address.
     function serviceRegistry() external view returns(address);
@@ -238,7 +238,7 @@ contract RegistryTracker {
     /// @dev Registers service multisig for registration rewards.
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance address.
-    function registerMultisig(uint256 serviceId, address stakingInstance) external {
+    function registerServiceMultisig(uint256 serviceId, address stakingInstance) external {
         // Reentrancy guard
         if (_locked == 2) {
             revert ReentrancyGuard();
@@ -246,7 +246,7 @@ contract RegistryTracker {
         _locked = 2;
 
         // Get service multisig and owner
-        IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).mapServiceInfo(serviceId);
+        IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).getServiceInfo(serviceId);
 
         // Check for multisig address
         if (serviceInfo.multisig == address(0)) {
