@@ -25,6 +25,14 @@ interface IStaking {
         Evicted
     }
 
+    /// @dev Checkpoint to allocate rewards up until a current time.
+    /// @return serviceIds Staking service Ids (excluding evicted ones within a current epoch).
+    /// @return eligibleServiceIds Set of reward-eligible service Ids.
+    /// @return eligibleServiceRewards Corresponding set of reward-eligible service rewards.
+    /// @return evictServiceIds Evicted service Ids.
+    function checkpoint() external returns (uint256[] memory serviceIds, uint256[] memory eligibleServiceIds,
+        uint256[] memory eligibleServiceRewards, uint256[] memory evictServiceIds);
+
     // Mapping of serviceId => staking service info
     function mapServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
 
@@ -169,6 +177,9 @@ contract RegistryTracker {
             revert AlreadyRegistered(serviceInfo.multisig, serviceId);
         }
         mapMultisigRegisteringTime[serviceInfo.multisig] = block.timestamp;
+
+        // Call staking instance checkpoint
+        IStaking(stakingInstance).checkpoint();
 
         emit ServiceMultisigRegistered(serviceInfo.multisig, serviceId);
 
