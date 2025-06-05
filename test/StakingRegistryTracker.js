@@ -154,9 +154,7 @@ describe("Staking Registry Tracker", function () {
         await serviceRegistry.changeMultisigPermission(gnosisSafeSameAddressMultisig.address, true);
 
         // Whitelist activity checker hash
-        bytecode = await ethers.provider.getCode(registryTrackerActivityChecker.address);
-        bytecodeHash = ethers.utils.keccak256(bytecode);
-        await registryTracker.whitelistActivityCheckerHashes([bytecodeHash]);
+        await registryTracker.whitelistActivityCheckerHashes([registryTrackerActivityChecker.address]);
 
         // Fund the staking contract
         await token.approve(stakingTokenAddress, ethers.utils.parseEther("1"));
@@ -199,12 +197,16 @@ describe("Staking Registry Tracker", function () {
 
             // Try to set contribute service multisig statuses not by the owner
             await expect(
-                registryTracker.connect(operator).whitelistActivityCheckerHashes([HashZero])
+                registryTracker.connect(operator).whitelistActivityCheckerHashes([AddressZero])
             ).to.be.revertedWithCustomError(registryTracker, "UnauthorizedAccount");
 
-            // Zero value
+            // Zero address
             await expect(
-                registryTracker.whitelistActivityCheckerHashes([HashZero])
+                registryTracker.whitelistActivityCheckerHashes([AddressZero])
+            ).to.be.revertedWithCustomError(registryTracker, "ZeroAddress");
+            // Zero code length
+            await expect(
+                registryTracker.whitelistActivityCheckerHashes([deployer.address])
             ).to.be.revertedWithCustomError(registryTracker, "ZeroValue");
 
             // Try to re-initialize the proxy
@@ -322,27 +324,6 @@ describe("Staking Registry Tracker", function () {
             await expect(
                 registryTracker.changeRewardPeriod(0)
             ).to.be.revertedWithCustomError(registryTracker, "ZeroAddress");
-        });
-    });
-
-    context("Activity Checker Management", function () {
-        it("Whitelist activity checker hashes", async function () {
-            const newHash = "0x" + "6".repeat(64);
-            await registryTracker.whitelistActivityCheckerHashes([newHash]);
-            expect(await registryTracker.mapActivityCheckerHashes(newHash)).to.be.true;
-        });
-
-        it("Whitelist activity checker hashes unauthorized", async function () {
-            const newHash = "0x" + "6".repeat(64);
-            await expect(
-                registryTracker.connect(operator).whitelistActivityCheckerHashes([newHash])
-            ).to.be.revertedWithCustomError(registryTracker, "UnauthorizedAccount");
-        });
-
-        it("Whitelist activity checker hashes zero value", async function () {
-            await expect(
-                registryTracker.whitelistActivityCheckerHashes([HashZero])
-            ).to.be.revertedWithCustomError(registryTracker, "ZeroValue");
         });
     });
 

@@ -35,7 +35,7 @@ No issue
         https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1052.md#specification
         ref: The EXTCODEHASH of the account without code is c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 what is the keccak256 hash of empty data.
 ```
-[]
+[x] Noted
 
 ### Notes. Using directly OPCODE 
 ```
@@ -60,7 +60,7 @@ Notes: codehash can be 0 OR(!) keccak256("") for non-contract or selfdestruct ac
 https://github.com/ethereum/solidity/issues/14794
 https://code4rena.com/reports/2023-10-wildcat#h-02-codehash-check-in-factory-contracts-does-not-account-for-non-empty-addresses
 ```
-[]
+[x] Noted
 
 ### Notes. Calculate hash on fly in whitelistActivityCheckerHashes
 ```
@@ -71,6 +71,6 @@ whitelistActivityChecker based on array of address
 if (activityChecker[i].code.length == 0) { revert();} // no-contract or selfdestruct
 mapActivityCheckerHashes[keccak256(activityChecker[i].code)] = true;
 ```
-[]
+[x] Fixed
 
 
