@@ -45,13 +45,13 @@ interface IStaking {
 
     /// @dev Gets staking service info.
     /// @param serviceId Service Id.
-    function getServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
+    function getServiceInfo(uint256 serviceId) external view returns (ServiceInfo memory);
 
     /// @dev Gets service registry address.
-    function serviceRegistry() external view returns(address);
+    function serviceRegistry() external view returns (address);
 
     /// @dev Gets activity checker address.
-    function activityChecker() external view returns(address);
+    function activityChecker() external view returns (address);
 
     /// @dev Gets the service staking state.
     /// @param serviceId.
@@ -60,7 +60,7 @@ interface IStaking {
 
     /// @dev Gets staking instance params.
     /// @param instance Staking instance address.
-    function mapInstanceParams(address instance) external view returns(InstanceParams memory);
+    function mapInstanceParams(address instance) external view returns (InstanceParams memory);
 }
 
 /// @dev Zero address.
