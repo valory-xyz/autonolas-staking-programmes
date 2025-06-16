@@ -175,7 +175,7 @@ contract RegistryTracker {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Changes the contributors implementation contract address.
+    /// @dev Changes the implementation contract address.
     /// @param newImplementation New implementation contract address.
     function changeImplementation(address newImplementation) external {
         // Check for the ownership
