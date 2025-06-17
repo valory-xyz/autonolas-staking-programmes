@@ -4,7 +4,7 @@ The review has been performed based on the contract code in the following reposi
 commit: `v1.6.3-pre-internal-audit` or `d749f38081b35435fe5b392ce6d6c634a3bd7518` <br> 
 
 ## Objectives
-The audit focused on contracts in this repo. <br>
+The audit focused on registry tracker contracts. <br>
 
 ### ERC20/ERC721 checks
 N/A
