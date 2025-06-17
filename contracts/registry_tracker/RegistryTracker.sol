@@ -45,13 +45,13 @@ interface IStaking {
 
     /// @dev Gets staking service info.
     /// @param serviceId Service Id.
-    function mapServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
+    function getServiceInfo(uint256 serviceId) external view returns (ServiceInfo memory);
 
     /// @dev Gets service registry address.
-    function serviceRegistry() external view returns(address);
+    function serviceRegistry() external view returns (address);
 
     /// @dev Gets activity checker address.
-    function activityChecker() external view returns(address);
+    function activityChecker() external view returns (address);
 
     /// @dev Gets the service staking state.
     /// @param serviceId.
@@ -60,7 +60,7 @@ interface IStaking {
 
     /// @dev Gets staking instance params.
     /// @param instance Staking instance address.
-    function mapInstanceParams(address instance) external view returns(InstanceParams memory);
+    function mapInstanceParams(address instance) external view returns (InstanceParams memory);
 }
 
 /// @dev Zero address.
@@ -102,7 +102,7 @@ contract RegistryTracker {
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event RewardPeriodUpdated(uint256 rewardPeriod);
-    event ActivityCheckerHashesWhitelisted(bytes32[] activityCheckerHashes);
+    event ActivityCheckerHashesWhitelisted(address[] activityCheckers, bytes32[] activityCheckerHashes);
     event ServiceMultisigRegistered(address indexed multisig, uint256 indexed serviceId);
 
     // Code position in storage is keccak256("REGISTRY_TRACKER_PROXY") = "0x74d7566dbc76da138d8eaf64f2774351bdfd8119d17c7d6332c2dc73d31d555a"
@@ -215,30 +215,41 @@ contract RegistryTracker {
 
     /// @dev Whitelists activity checker hashes.
     /// @notice Whitelisting is not reversible, since it is not desirable to drop support of whitelisted hashes.
-    /// @param activityCheckerHashes Set of activity checker hashes.
-    function whitelistActivityCheckerHashes(bytes32[] memory activityCheckerHashes) external {
+    /// @notice Make sure activityCheckers are not proxies.
+    /// @param activityCheckers Set of activity checker addresses.
+    function whitelistActivityCheckerHashes(address[] memory activityCheckers) external {
         // Check the contract ownership
         if (owner != msg.sender) {
             revert UnauthorizedAccount(msg.sender);
         }
 
+        bytes32[] memory activityCheckerHashes = new bytes32[](activityCheckers.length);
+
         // Whitelist activity checker hashes
-        for (uint256 i = 0; i < activityCheckerHashes.length; ++i) {
-            // Check for zero values
-            if (activityCheckerHashes[i] == 0) {
+        for (uint256 i = 0; i < activityCheckers.length; ++i) {
+            // Check for zero address
+            if (activityCheckers[i] == address(0)) {
+                revert ZeroAddress();
+            }
+
+            // Check for zero code value
+            if (activityCheckers[i].code.length == 0) {
                 revert ZeroValue();
             }
 
+            // Get contract hash
+            activityCheckerHashes[i] = activityCheckers[i].codehash;
+            // Record contract hash in the map
             mapActivityCheckerHashes[activityCheckerHashes[i]] = true;
         }
 
-        emit ActivityCheckerHashesWhitelisted(activityCheckerHashes);
+        emit ActivityCheckerHashesWhitelisted(activityCheckers, activityCheckerHashes);
     }
 
     /// @dev Registers service multisig for registration rewards.
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance address.
-    function registerMultisig(uint256 serviceId, address stakingInstance) external {
+    function registerServiceMultisig(uint256 serviceId, address stakingInstance) external {
         // Reentrancy guard
         if (_locked == 2) {
             revert ReentrancyGuard();
@@ -246,7 +257,7 @@ contract RegistryTracker {
         _locked = 2;
 
         // Get service multisig and owner
-        IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).mapServiceInfo(serviceId);
+        IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).getServiceInfo(serviceId);
 
         // Check for multisig address
         if (serviceInfo.multisig == address(0)) {
@@ -278,8 +289,7 @@ contract RegistryTracker {
         // Get activity checker address
         address activityChecker = IStaking(stakingInstance).activityChecker();
         // Check that the activity checker address corresponds to the authorized bytecode hash
-        bytes32 activityCheckerHash = keccak256(activityChecker.code);
-        if (!mapActivityCheckerHashes[activityCheckerHash]) {
+        if (!mapActivityCheckerHashes[activityChecker.codehash]) {
             revert WrongStakingInstance(stakingInstance);
         }
 

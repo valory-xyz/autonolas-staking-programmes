@@ -11,10 +11,6 @@ interface IRegistryTracker {
 /// @dev Zero address.
 error ZeroAddress();
 
-/// @dev Unauthorized account.
-/// @param account Account address.
-error UnauthorizedAccount(address account);
-
 /// @title RegistryTrackerActivityChecker - Smart contract for performing registry tracker staking activity check
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
@@ -29,6 +25,9 @@ contract RegistryTrackerActivityChecker is StakingActivityChecker {
     constructor(address _registryTracker)
         StakingActivityChecker(1)
     {
+        if (_registryTracker == address(0)) {
+            revert ZeroAddress();
+        }
         registryTracker = _registryTracker;
     }
 
@@ -52,10 +51,7 @@ contract RegistryTrackerActivityChecker is StakingActivityChecker {
         // Get multisig address from a nonce
         address multisig = address(uint160(curNonces[0]));
 
-        // Check for zero address
-        if (multisig != address(0)) {
-            // Get staking reward eligibility status
-            ratioPass = IRegistryTracker(registryTracker).isStakingRewardEligible(multisig);
-        }
+        // Get staking reward eligibility status
+        ratioPass = IRegistryTracker(registryTracker).isStakingRewardEligible(multisig);
     }
 }
