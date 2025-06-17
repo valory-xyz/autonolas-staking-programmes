@@ -19,6 +19,16 @@ interface IStaking {
         uint256 inactivity;
     }
 
+    // Instance params struct
+    struct InstanceParams {
+        // Implementation of a created proxy instance
+        address implementation;
+        // Instance deployer
+        address deployer;
+        // Instance status flag
+        bool isEnabled;
+    }
+
     enum StakingState {
         Unstaked,
         Staked,
@@ -33,13 +43,24 @@ interface IStaking {
     function checkpoint() external returns (uint256[] memory serviceIds, uint256[] memory eligibleServiceIds,
         uint256[] memory eligibleServiceRewards, uint256[] memory evictServiceIds);
 
-    // Mapping of serviceId => staking service info
-    function mapServiceInfo(uint256 serviceId) external view returns(ServiceInfo memory);
+    /// @dev Gets staking service info.
+    /// @param serviceId Service Id.
+    function getServiceInfo(uint256 serviceId) external view returns (ServiceInfo memory);
+
+    /// @dev Gets service registry address.
+    function serviceRegistry() external view returns (address);
+
+    /// @dev Gets activity checker address.
+    function activityChecker() external view returns (address);
 
     /// @dev Gets the service staking state.
     /// @param serviceId.
     /// @return stakingState Staking state of the service.
     function getStakingState(uint256 serviceId) external view returns (StakingState stakingState);
+
+    /// @dev Gets staking instance params.
+    /// @param instance Staking instance address.
+    function mapInstanceParams(address instance) external view returns (InstanceParams memory);
 }
 
 /// @dev Zero address.
@@ -47,6 +68,9 @@ error ZeroAddress();
 
 /// @dev Zero value.
 error ZeroValue();
+
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
 
 /// @dev Account is unauthorized.
 /// @param account Account address.
@@ -56,6 +80,10 @@ error UnauthorizedAccount(address account);
 /// @param multisig Service multisig address.
 /// @param serviceId Service Id.
 error AlreadyRegistered(address multisig, uint256 serviceId);
+
+/// @dev Wrong staking instance.
+/// @param stakingInstance Staking instance address.
+error WrongStakingInstance(address stakingInstance);
 
 /// @dev Wrong service staking state.
 /// @param serviceId Service Id.
@@ -72,11 +100,18 @@ error ReentrancyGuard();
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract RegistryTracker {
     event OwnerUpdated(address indexed owner);
+    event ImplementationUpdated(address indexed implementation);
     event RewardPeriodUpdated(uint256 rewardPeriod);
+    event ActivityCheckerHashesWhitelisted(address[] activityCheckers, bytes32[] activityCheckerHashes);
     event ServiceMultisigRegistered(address indexed multisig, uint256 indexed serviceId);
+
+    // Code position in storage is keccak256("REGISTRY_TRACKER_PROXY") = "0x74d7566dbc76da138d8eaf64f2774351bdfd8119d17c7d6332c2dc73d31d555a"
+    bytes32 public constant REGISTRY_TRACKER_PROXY = 0x74d7566dbc76da138d8eaf64f2774351bdfd8119d17c7d6332c2dc73d31d555a;
 
     // Service registry address
     address public immutable serviceRegistry;
+    // Staking factory address
+    address public immutable stakingFactory;
     // Reward period in seconds
     uint256 public rewardPeriod;
 
@@ -84,29 +119,43 @@ contract RegistryTracker {
     address public owner;
 
     // Reentrancy lock
-    uint256 internal _locked = 1;
+    uint256 internal _locked;
 
-    /// Mapping of service multisigs => timestamp of multisig registration
+    // Mapping of service multisigs => timestamp of multisig registration
     mapping(address => uint256) public mapMultisigRegisteringTime;
+    // Mapping of activity checker hash => whitelisted status
+    mapping(bytes32 => bool) public mapActivityCheckerHashes;
 
     /// @dev RegistryTracker constructor.
     /// @param _serviceRegistry Service registry address.
-    /// @param _rewardPeriod Reward period in seconds.
-    constructor(address _serviceRegistry, uint256 _rewardPeriod) {
+    /// @param _stakingFactory Staking factory address.
+    constructor(address _serviceRegistry, address _stakingFactory) {
         // Check for zero addresses
-        if (_serviceRegistry == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0)) {
             revert ZeroAddress();
         }
 
-        // Check for zero values
+        serviceRegistry = _serviceRegistry;
+        stakingFactory = _stakingFactory;
+    }
+
+    /// @dev Initializes contract proxy.
+    /// @param _rewardPeriod Reward period in seconds.
+    function initialize(uint256 _rewardPeriod) external {
+        // Check for already initialized
+        if (owner != address(0)) {
+            revert AlreadyInitialized();
+        }
+
+        // Check for zero value
         if (_rewardPeriod == 0) {
             revert ZeroValue();
         }
 
-        serviceRegistry = _serviceRegistry;
         rewardPeriod = _rewardPeriod;
-
         owner = msg.sender;
+
+        _locked = 1;
     }
 
     /// @dev Changes contract owner address.
@@ -126,6 +175,27 @@ contract RegistryTracker {
         emit OwnerUpdated(newOwner);
     }
 
+    /// @dev Changes the implementation contract address.
+    /// @param newImplementation New implementation contract address.
+    function changeImplementation(address newImplementation) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        // Check for zero address
+        if (newImplementation == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Store the contributors implementation address
+        assembly {
+            sstore(REGISTRY_TRACKER_PROXY, newImplementation)
+        }
+
+        emit ImplementationUpdated(newImplementation);
+    }
+
     /// @dev Changes reward period.
     /// @param newRewardPeriod New reward period value.
     function changeRewardPeriod(uint256 newRewardPeriod) external {
@@ -143,10 +213,43 @@ contract RegistryTracker {
         emit RewardPeriodUpdated(newRewardPeriod);
     }
 
+    /// @dev Whitelists activity checker hashes.
+    /// @notice Whitelisting is not reversible, since it is not desirable to drop support of whitelisted hashes.
+    /// @notice Make sure activityCheckers are not proxies.
+    /// @param activityCheckers Set of activity checker addresses.
+    function whitelistActivityCheckerHashes(address[] memory activityCheckers) external {
+        // Check the contract ownership
+        if (owner != msg.sender) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        bytes32[] memory activityCheckerHashes = new bytes32[](activityCheckers.length);
+
+        // Whitelist activity checker hashes
+        for (uint256 i = 0; i < activityCheckers.length; ++i) {
+            // Check for zero address
+            if (activityCheckers[i] == address(0)) {
+                revert ZeroAddress();
+            }
+
+            // Check for zero code value
+            if (activityCheckers[i].code.length == 0) {
+                revert ZeroValue();
+            }
+
+            // Get contract hash
+            activityCheckerHashes[i] = activityCheckers[i].codehash;
+            // Record contract hash in the map
+            mapActivityCheckerHashes[activityCheckerHashes[i]] = true;
+        }
+
+        emit ActivityCheckerHashesWhitelisted(activityCheckers, activityCheckerHashes);
+    }
+
     /// @dev Registers service multisig for registration rewards.
     /// @param serviceId Service Id.
     /// @param stakingInstance Staking instance address.
-    function registerMultisig(uint256 serviceId, address stakingInstance) external {
+    function registerServiceMultisig(uint256 serviceId, address stakingInstance) external {
         // Reentrancy guard
         if (_locked == 2) {
             revert ReentrancyGuard();
@@ -154,7 +257,7 @@ contract RegistryTracker {
         _locked = 2;
 
         // Get service multisig and owner
-        IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).mapServiceInfo(serviceId);
+        IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).getServiceInfo(serviceId);
 
         // Check for multisig address
         if (serviceInfo.multisig == address(0)) {
@@ -166,10 +269,28 @@ contract RegistryTracker {
             revert UnauthorizedAccount(msg.sender);
         }
 
+        // Check for service registry address
+        if (serviceRegistry != IStaking(stakingInstance).serviceRegistry()) {
+            revert WrongStakingInstance(stakingInstance);
+        }
+
+        // Check for staking factory verification
+        IStaking.InstanceParams memory instanceParams = IStaking(stakingFactory).mapInstanceParams(stakingInstance);
+        if (instanceParams.implementation == address(0)) {
+            revert WrongStakingInstance(stakingInstance);
+        }
+
         // Get service staking state
         IStaking.StakingState stakingState = IStaking(stakingInstance).getStakingState(serviceId);
         if (stakingState != IStaking.StakingState.Staked) {
             revert WrongStakingState(serviceId, stakingInstance, stakingState);
+        }
+
+        // Get activity checker address
+        address activityChecker = IStaking(stakingInstance).activityChecker();
+        // Check that the activity checker address corresponds to the authorized bytecode hash
+        if (!mapActivityCheckerHashes[activityChecker.codehash]) {
+            revert WrongStakingInstance(stakingInstance);
         }
 
         // Check for previous registration
