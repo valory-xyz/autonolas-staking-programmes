@@ -4,6 +4,7 @@
   "derivationPath":"m/44'/60'/9'/0/0",
   "providerName":"base",
   "networkURL":"https://mainnet.base.org",
+  "blockscoutURL":"https://base.blockscout.com",
   "gasPriceInGwei":"0.005",
   "bridgeMediatorAddress":"0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA",
   "gnosisSafeAddress":"0x69f4D1788e39c87893C980c06EdF4b7f686e2938",
