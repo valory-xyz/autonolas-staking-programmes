@@ -1,15 +1,22 @@
 #!/bin/bash
 
-# Read variables using jq
-contractVerification=$(jq -r '.contractVerification' globals.json)
-useLedger=$(jq -r '.useLedger' globals.json)
-derivationPath=$(jq -r '.derivationPath' globals.json)
-gasPriceInGwei=$(jq -r '.gasPriceInGwei' globals.json)
-chainId=$(jq -r '.chainId' globals.json)
-networkURL=$(jq -r '.networkURL' globals.json)
+# Get globals file
+globals="$(dirname "$0")/globals_$1.json"
+if [ ! -f $globals ]; then
+  echo "!!! $globals is not found"
+  exit 0
+fi
 
-registryTrackerAddress=$(jq -r '.registryTrackerAddress' globals.json)
-rewardPeriod=$(jq -r '.rewardPeriod' globals.json)
+# Read variables using jq
+contractVerification=$(jq -r '.contractVerification' $globals)
+useLedger=$(jq -r '.useLedger' $globals)
+derivationPath=$(jq -r '.derivationPath' $globals)
+gasPriceInGwei=$(jq -r '.gasPriceInGwei' $globals)
+chainId=$(jq -r '.chainId' $globals)
+networkURL=$(jq -r '.networkURL' $globals)
+
+registryTrackerAddress=$(jq -r '.registryTrackerAddress' $globals)
+rewardPeriod=$(jq -r '.rewardPeriod' $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -56,22 +63,25 @@ outputLength=${#registryTrackerProxyAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
-  echo "!!! The contract was not deployed, aborting..."
+  echo "!!! The contract was not deployed"
   exit 0
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"registryTrackerProxyAddress":"'$registryTrackerProxyAddress'"}' globals.json)" > globals.json
+echo "$(jq '. += {"registryTrackerProxyAddress":"'$registryTrackerProxyAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  echo "Verifying contract..."
-  forge verify-contract \
-    --chain-id "$chainId" \
-    --etherscan-api-key "$ETHERSCAN_API_KEY" \
-    "$registryTrackerProxyAddress" \
-    "$contractPath" \
-    --constructor-args $(cast abi-encode "constructor(address,bytes)" $constructorArgs)
+  contractParams="$registryTrackerProxyAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,bytes)" $constructorArgs)"
+
+  echo "Verifying contract on Etherscan..."
+  forge verify-contract --chain-id "$chainId" --etherscan-api-key "$ETHERSCAN_API_KEY" $contractParams
+
+  blockscoutURL=$(jq -r '.blockscoutURL' $globals)
+  if [ "$blockscoutURL" != "null" ]; then
+    echo "Verifying contract on Blockscout..."
+    forge verify-contract --verifier blockscout --verifier-url "$blockscoutURL/api" $contractParams
+  fi
 fi
 
 echo "Recovery Module deployed at: $registryTrackerProxyAddress"
