@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org).
 
+[1.7.0]: https://github.com/valory-xyz/autonolas-registries/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/valory-xyz/autonolas-registries/compare/v1.5.0...v1.6.1
 [1.5.0]: https://github.com/valory-xyz/autonolas-registries/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/valory-xyz/autonolas-registries/compare/v1.3.0...v1.4.0
@@ -11,6 +12,10 @@ The format is based on [Common Changelog](https://common-changelog.org).
 [1.2.0]: https://github.com/valory-xyz/autonolas-registries/compare/v1.0.0...v1.2.0
 [1.0.1]: https://github.com/valory-xyz/ai-registry-mech/releases/tag/v1.0.0
 
+
+## [1.7.0] - 2025-06-25
+
+- Development of `registry_tracker` staking contracts ([#87](https://github.com/valory-xyz/autonolas-staking-programmesh/pull/87))
 
 ## [1.6.1] - 2025-02-25
 
