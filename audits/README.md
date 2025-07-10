@@ -17,4 +17,7 @@ An internal audit with a focus on dual token contracts is located in this folder
 An internal re-audit with a focus on dual token contracts is located in this folder: [internal audit 4](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal4).
 
 ### Internal audit
+An internal re-audit with a focus on registry tracker contracts is located in this folder: [internal audit 5](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal5).
+
+### Internal audit
 An internal audit with a focus on BIO token contracts is located in this folder: [internal audit 6](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal6).

@@ -182,7 +182,7 @@ describe("Staking Dual Token", function () {
         await token.approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
         await token.connect(operator).approve(serviceRegistryTokenUtility.address, serviceParams.minStakingDeposit);
 
-        // Create wrong service setup
+        // Create a service
         await serviceManager.create(deployer.address, token.address, defaultHash, agentIds, agentParams, threshold);
         await serviceManager.activateRegistration(serviceId, {value: 1});
         await serviceManager.connect(operator).registerAgents(serviceId, [agentInstances[0].address], agentIds, {value: 1});
