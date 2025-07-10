@@ -5,7 +5,7 @@ import {StakingActivityChecker, IMultisig} from "../../lib/autonolas-registries/
 
 // DualStakingToken interface
 interface IDualStakingToken {
-    function mapMutisigs(address multisig) external view returns (bool);
+    function mapActiveMutisigAttestations(address multisig) external view returns (uint256);
 }
 
 /// @dev Zero address.
@@ -20,6 +20,8 @@ error UnauthorizedAccount(address account);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract DualStakingTokenActivityChecker is StakingActivityChecker {
+    event DualStakingTokenUpdated(address indexed dualStakingToken);
+
     // DualStakingToken contract address
     address public dualStakingToken;
     // Temporary owner address
@@ -49,20 +51,41 @@ contract DualStakingTokenActivityChecker is StakingActivityChecker {
 
         // Resets the owner
         owner = address(0);
+
+        emit DualStakingTokenUpdated(_dualStakingToken);
     }
 
     /// @dev Gets service multisig nonces.
     /// @param multisig Service multisig address.
-    /// @return nonces Set of a single service multisig nonce.
+    /// @return nonces Set of service multisig nonces and attestations count.
     function getMultisigNonces(address multisig) external virtual override view returns (uint256[] memory nonces) {
         // Check for token duality
         // This check prevents from staking directly to service staking contract without locking the second token
-        if (!IDualStakingToken(dualStakingToken).mapMutisigs(multisig)) {
+        uint256 attestationsValue = IDualStakingToken(dualStakingToken).mapActiveMutisigAttestations(multisig);
+        // Checking most significant bit
+        if ((attestationsValue >> 255) != 1) {
             revert UnauthorizedAccount(multisig);
         }
 
-        nonces = new uint256[](1);
-        // The nonce is equal to the social off-chain activity corresponding to a multisig activity
+        nonces = new uint256[](2);
+        // First nonce represents multisig activity
         nonces[0] = IMultisig(multisig).nonce();
+        // Second nonce provides attestations count (removing most significant bit)
+        nonces[1] = attestationsValue & ((1 << 255) - 1);
+    }
+
+    /// @inheritdoc StakingActivityChecker
+    function isRatioPass(
+        uint256[] memory curNonces,
+        uint256[] memory lastNonces,
+        uint256 ts
+    ) external view override returns (bool ratioPass) {
+        // If the checkpoint was called in the exact same block, the ratio is zero
+        // If the current nonce is not greater than the last nonce, the ratio is zero
+        // If the current attestation count is not greater than the last attestation count, the ratio is zero
+        if (ts > 0 && curNonces[0] > lastNonces[0] && curNonces[1] > lastNonces[1]) {
+            uint256 ratio = ((curNonces[0] - lastNonces[0]) * 1e18) / ts;
+            ratioPass = (ratio >= livenessRatio);
+        }
     }
 }
