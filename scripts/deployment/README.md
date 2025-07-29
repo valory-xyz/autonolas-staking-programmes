@@ -29,7 +29,7 @@ Parameters of the `globals.json` file:
 - `agentMechAddress`: an agent mech address;
 - `livenessRatio`: number of service multisig transactions per second (with 18 decimals) that are used to measure the service
     liveness (activity). In other words, it's the minimum number of transactions the service multisig needs to perform in order
-    to pass the liveness check. To check this `rewardsPerSecond* livenessPeriod/1e18` should approximate the number of txs required per livenessPeriod.
+    to pass the liveness check. To check this `(rewardsPerSecond * livenessPeriod) / 1e18` should approximate the number of txs required per livenessPeriod.
     Assuming the number of required tx-s per day is 10, the liveness ratio can be checked by means of [this formula](https://www.wolframalpha.com/input?i=%28115740740740740+*+60+*+60+*+24%29+%2F+10%5E18);
 - `stakingActivityCheckerAddress`: a basic activity checker contract address that uses only the `livenessRatio` value;
 - `singleMechActivityCheckerAddress`: a mech activity checker contract address that uses `agentMechAddress` and `livenessRatio` values;
