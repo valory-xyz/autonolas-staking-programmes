@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
-import {ERC721TokenReceiver} from "../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
-import {IEAS} from "./interfaces/IEAS.sol";
-import {IService} from "./interfaces/IService.sol";
-import {IStaking} from "./interfaces/IStaking.sol";
-import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
+import {ERC721TokenReceiver} from "../../../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
+import {IEAS} from "../../interfaces/IEAS.sol";
+import {IService} from "../../interfaces/IService.sol";
+import {IStaking} from "../../interfaces/IStaking.sol";
+import {SafeTransferLib} from "../../libraries/SafeTransferLib.sol";
 
 // ERC20 token interface
 interface IToken {
