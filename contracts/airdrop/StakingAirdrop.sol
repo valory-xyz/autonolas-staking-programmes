@@ -194,7 +194,7 @@ contract StakingAirdrop {
                 continue;
             }
 
-            localAmounts[i] == amount;
+            localAmounts[i] = amount;
             // Add to total amount
             totalAmount += amount;
 
