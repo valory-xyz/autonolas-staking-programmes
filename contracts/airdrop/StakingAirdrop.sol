@@ -54,9 +54,6 @@ error ReentrancyGuard();
 
 
 /// @title StakingAirdrop - Smart contract for staking airdrop
-/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
-/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract StakingAirdrop {
     event Claimed(address indexed sender, uint256 indexed serviceId, uint256 amount);
 
@@ -75,6 +72,8 @@ contract StakingAirdrop {
 
     // Mapping of service Id => airdrop amount
     mapping(uint256 => uint256) public mapServiceIdAirdropAmount;
+    // Service Ids eligible for for airdrop
+    uint256[] public serviceIds;
 
     /// @dev StakingAirdrop constructor.
     /// @param _token Token address.
@@ -93,7 +92,7 @@ contract StakingAirdrop {
         }
 
         // Check array lengths
-        if (_serviceIds.length != _amounts.length) {
+        if (_serviceIds.length == 0 || _serviceIds.length != _amounts.length) {
             revert WrongArrayLength(_serviceIds.length, _amounts.length);
         }
 
@@ -105,6 +104,7 @@ contract StakingAirdrop {
         for (uint256 i = 0; i < _serviceIds.length; ++i) {
             checkTotalAmount += _amounts[i];
             mapServiceIdAirdropAmount[_serviceIds[i]] = _amounts[i];
+            serviceIds[i] = _serviceIds[i];
         }
 
         // Check equality to airdrop amount
@@ -152,6 +152,62 @@ contract StakingAirdrop {
         IToken(token).transfer(msg.sender, amount);
 
         emit Claimed(msg.sender, serviceId, amount);
+
+        _locked = 1;
+    }
+
+    /// @dev Claims airdrop for all eligible service Ids.
+    function claimForAll() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        uint256 numServiceIds = serviceIds.length;
+        uint256[] memory localServiceIds = new uint256[](numServiceIds);
+        uint256[] memory localAmounts = new uint256[](numServiceIds);
+        uint256 totalAmount;
+
+        // Traverse all service Ids for amounts computation
+        for (uint256 i = 0; i < numServiceIds; ++i) {
+            localServiceIds[i] = serviceIds[i];
+
+            // Get airdrop amount for a specific service Id
+            uint256 amount = mapServiceIdAirdropAmount[localServiceIds[i]];
+
+            // Check for zero value
+            if (amount == 0) {
+                continue;
+            }
+
+            localAmounts[i] == amount;
+            // Add to total amount
+            totalAmount += amount;
+
+            // Zero airdrop amount
+            mapServiceIdAirdropAmount[localServiceIds[i]] = 0;
+        }
+
+        // Get contract balance
+        uint256 balance = IToken(token).balanceOf(address(this));
+        // Check for total amount overflow
+        if (totalAmount > balance) {
+            revert Overflow(totalAmount, balance);
+        }
+
+        // Traverse all service Ids for transfer
+        for (uint256 i = 0; i < numServiceIds; ++i) {
+            // Check for zero value
+            if (localAmounts[i] == 0) {
+                continue;
+            }
+
+            // Transfer airdrop tokens
+            IToken(token).transfer(msg.sender, localAmounts[i]);
+
+            emit Claimed(msg.sender, localServiceIds[i], localAmounts[i]);
+        }
 
         _locked = 1;
     }
