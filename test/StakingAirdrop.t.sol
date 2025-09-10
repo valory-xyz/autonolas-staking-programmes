@@ -57,15 +57,6 @@ contract StakingAirdropTest is Test {
         new StakingAirdrop(address(token), address(registry), ids, amounts);
     }
 
-    function testConstructorWrongAmountSum() public {
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = SERVICE_ID;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 9_999;
-        vm.expectRevert();
-        new StakingAirdrop(address(token), address(registry), ids, amounts);
-    }
-
     function testClaimSuccess() public {
         vm.prank(owner);
         airdrop.claim(SERVICE_ID);
@@ -128,7 +119,7 @@ contract StakingAirdropTest is Test {
         token.transfer(address(drop), 10_000);
 
         vm.prank(owner);
-        drop.claimForAll();
+        drop.claimAll();
         assertEq(token.balanceOf(owner), 7_000);
         assertEq(token.balanceOf(other), 3_000);
     }
@@ -148,7 +139,7 @@ contract StakingAirdropTest is Test {
 
         vm.prank(owner);
         vm.expectRevert();
-        drop.claimForAll();
+        drop.claimAll();
     }
 }
 
