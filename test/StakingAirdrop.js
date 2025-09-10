@@ -150,6 +150,41 @@ describe("StakingAirdrop", function () {
         await token.transfer(drop.address, 9000);
         await expect(drop.claimAll()).to.be.revertedWithCustomError(drop, "Overflow");
     });
+
+    it("claimAll for multiple services", async function () {
+        // set multiple ids
+        const numServiceIds = 10;
+        let serviceIds = new Array(numServiceIds);
+        let amounts = new Array(numServiceIds);
+        let totalAmount = 0;
+        for (let i = 1; i <= numServiceIds; i++) {
+            await serviceRegistry.setService(i, 0, deployer.address, ethers.constants.HashZero, 0, 0, 0, 0);
+            serviceIds[i - 1] = i;
+            amounts[i - 1] = 1000 * i;
+            totalAmount += amounts[i - 1];
+        }
+
+        const StakingAirdrop = await ethers.getContractFactory("StakingAirdrop");
+        const drop = await StakingAirdrop.deploy(
+            token.address,
+            serviceRegistry.address,
+            serviceIds,
+            amounts
+        );
+        await drop.deployed();
+        await token.transfer(drop.address, totalAmount);
+
+        // Claim service Id 5 and 7
+        await drop.claim(5);
+        await drop.claim(7);
+
+        // Now claim the rest
+        await drop.claimAll();
+
+        // The drop contract balance must be zero after all the claims
+        const balanceAfter = await token.balanceOf(drop.address);
+        expect(balanceAfter).to.equal(0);
+    });
 });
 
 
