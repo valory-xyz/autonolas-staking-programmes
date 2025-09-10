@@ -64,7 +64,7 @@ contract StakingAirdrop {
 
     // Version number
     string public constant VERSION = "0.1.0";
-    // Airdrop amount
+    // Total airdrop amount
     uint256 public constant AIRDROP_AMOUNT = 10_000;
 
     // Token address
