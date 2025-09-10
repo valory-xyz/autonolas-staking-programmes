@@ -1,0 +1,13 @@
+{
+  "contractVerification":true,
+  "useLedger":false,
+  "derivationPath":"m/44'/60'/2'/0/0",
+  "providerName":"mode",
+  "chainId": "34443",
+  "networkURL":"https://mainnet.mode.network",
+  "blockscoutURL":"https://explorer.mode.network",
+  "usdcAddress":"0xd988097fb8612cc24eeC14542bC03424c656005f",
+  "serviceRegistryAddress":"0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
+  "serviceIds": "[44]",
+  "amounts": "[1000000]"
+}
