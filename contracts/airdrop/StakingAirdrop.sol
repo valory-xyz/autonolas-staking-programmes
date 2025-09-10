@@ -191,17 +191,15 @@ contract StakingAirdrop {
             // Get airdrop amount for a specific service Id
             uint256 amount = mapServiceIdAirdropAmount[localServiceIds[i]];
 
-            // Check for zero value
-            if (amount == 0) {
-                continue;
+            // Check for non-zero value, i.e. skip all manually claimed ones
+            if (amount > 0) {
+                localAmounts[i] = amount;
+                // Add to total amount
+                totalAmount += amount;
+
+                // Zero airdrop amount
+                mapServiceIdAirdropAmount[localServiceIds[i]] = 0;
             }
-
-            localAmounts[i] = amount;
-            // Add to total amount
-            totalAmount += amount;
-
-            // Zero airdrop amount
-            mapServiceIdAirdropAmount[localServiceIds[i]] = 0;
         }
 
         // Get contract balance
