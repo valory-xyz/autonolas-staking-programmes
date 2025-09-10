@@ -107,6 +107,7 @@ contract StakingAirdrop {
             mapServiceIdAirdropAmount[_serviceIds[i]] = _amounts[i];
         }
 
+        // Check equality to airdrop amount
         if (checkTotalAmount != AIRDROP_AMOUNT) {
             revert WrongAmount(checkTotalAmount, AIRDROP_AMOUNT);
         }

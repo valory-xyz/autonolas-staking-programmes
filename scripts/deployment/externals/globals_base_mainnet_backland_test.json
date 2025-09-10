@@ -19,7 +19,7 @@
   "stakingTokenAddress":"0xEB5638eefE289691EcE01943f768EDBF96258a80",
   "stakingFactoryAddress":"0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
   "livenessRatio":"46296296296296",
-  "stakingActivityCheckerAddress":"",
+  "quorumActivityCheckerAddress":"",
   "stakingParams":
   {
     "metadataHash":"",
