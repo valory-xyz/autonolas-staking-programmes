@@ -7,6 +7,7 @@ module.exports = {
         "test/ERC20Token.sol",
         "test/MockAgentMech.sol",
         "test/MockEAS.sol",
+        "test/MockServiceRegistryMap.sol",
         "test/SafeNonceLib.sol"
     ]
 };
