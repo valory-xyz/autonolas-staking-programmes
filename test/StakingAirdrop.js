@@ -156,12 +156,10 @@ describe("StakingAirdrop", function () {
         const numServiceIds = 10;
         let serviceIds = new Array(numServiceIds);
         let amounts = new Array(numServiceIds);
-        let totalAmount = 0;
         for (let i = 1; i <= numServiceIds; i++) {
             await serviceRegistry.setService(i, 0, deployer.address, ethers.constants.HashZero, 0, 0, 0, 0);
             serviceIds[i - 1] = i;
             amounts[i - 1] = 1000 * i;
-            totalAmount += amounts[i - 1];
         }
 
         const StakingAirdrop = await ethers.getContractFactory("StakingAirdrop");
@@ -172,6 +170,8 @@ describe("StakingAirdrop", function () {
             amounts
         );
         await drop.deployed();
+
+        const totalAmount = await drop.airdropAmount();
         await token.transfer(drop.address, totalAmount);
 
         // Claim service Id 5 and 7
