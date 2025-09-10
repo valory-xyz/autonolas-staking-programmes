@@ -61,16 +61,17 @@ error ReentrancyGuard();
 /// @title StakingAirdrop - Smart contract for staking airdrop
 contract StakingAirdrop {
     event Claimed(address indexed sender, uint256 indexed serviceId, address indexed multisig, uint256 amount);
+    event ZeroMultisigAddress(uint256 serviceId);
 
     // Version number
     string public constant VERSION = "0.1.0";
-    // Total airdrop amount
-    uint256 public constant AIRDROP_AMOUNT = 10_000;
 
     // Token address
     address public immutable token;
     // Service registry address
     address public immutable serviceRegistry;
+    // Total airdrop amount
+    uint256 public immutable airdropAmount;
 
     // Reentrancy lock
     uint256 internal _locked = 1;
@@ -104,7 +105,6 @@ contract StakingAirdrop {
         token = _token;
         serviceRegistry = _serviceRegistry;
 
-        uint256 checkTotalAmount;
         // Assign airdrop amounts
         for (uint256 i = 0; i < _serviceIds.length; ++i) {
             // Check for already assigned amount
@@ -112,21 +112,22 @@ contract StakingAirdrop {
                 revert NonZeroValue();
             }
 
-            // Add to total amount
-            checkTotalAmount += _amounts[i];
+            // Check for zero amount
+            if (_amounts[i] == 0) {
+                revert ZeroValue();
+            }
+
+            // Add to total airdrop amount
+            airdropAmount += _amounts[i];
 
             // Record amount and service Id
             mapServiceIdAirdropAmount[_serviceIds[i]] = _amounts[i];
             serviceIds.push(_serviceIds[i]);
         }
-
-        // Check equality to airdrop amount
-        if (checkTotalAmount != AIRDROP_AMOUNT) {
-            revert WrongAmount(checkTotalAmount, AIRDROP_AMOUNT);
-        }
     }
 
     /// @dev Claims airdrop.
+    /// @notice Any `msg.sender` is able to trigger claim for eligible service Id.
     /// @param serviceId Service Id.
     function claim(uint256 serviceId) external {
         // Reentrancy guard
@@ -170,7 +171,8 @@ contract StakingAirdrop {
     }
 
     /// @dev Claims airdrop for all eligible service Ids.
-    function claimForAll() external {
+    /// @notice Any `msg.sender` is able to trigger claim for eligible service Ids.
+    function claimAll() external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -221,7 +223,8 @@ contract StakingAirdrop {
 
             // Check multisig address
             if (multisig == address(0)) {
-                revert ZeroAddress();
+                emit ZeroMultisigAddress(localServiceIds[i]);
+                continue;
             }
 
             // Transfer airdrop tokens

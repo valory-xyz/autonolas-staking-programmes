@@ -9,6 +9,7 @@ describe("StakingAirdrop", function () {
     let deployer;
     let other;
     const serviceId = 1;
+    const airdropAmount = 10000;
 
     beforeEach(async function () {
         [deployer, other] = await ethers.getSigners();
@@ -27,23 +28,27 @@ describe("StakingAirdrop", function () {
             token.address,
             serviceRegistry.address,
             [serviceId],
-            [10000]
+            [airdropAmount]
         );
         await airdrop.deployed();
 
         // fund airdrop
         await token.mint(deployer.address, ethers.utils.parseEther("1"));
-        await token.transfer(airdrop.address, 10000);
+        await token.transfer(airdrop.address, airdropAmount);
     });
 
     it("constructor reverts on zero addresses", async function () {
         const StakingAirdrop = await ethers.getContractFactory("StakingAirdrop");
         await expect(
-            StakingAirdrop.deploy(ethers.constants.AddressZero, serviceRegistry.address, [serviceId], [10000])
+            StakingAirdrop.deploy(ethers.constants.AddressZero, serviceRegistry.address, [serviceId], [airdropAmount])
         ).to.be.revertedWithCustomError(airdrop, "ZeroAddress");
         await expect(
-            StakingAirdrop.deploy(token.address, ethers.constants.AddressZero, [serviceId], [10000])
+            StakingAirdrop.deploy(token.address, ethers.constants.AddressZero, [serviceId], [airdropAmount])
         ).to.be.revertedWithCustomError(airdrop, "ZeroAddress");
+        await expect(
+            StakingAirdrop.deploy(token.address, serviceRegistry.address, [serviceId], [0])
+        ).to.be.revertedWithCustomError(airdrop, "ZeroValue");
+
     });
 
     it("constructor reverts on wrong array length or empty", async function () {
@@ -54,13 +59,6 @@ describe("StakingAirdrop", function () {
         await expect(
             StakingAirdrop.deploy(token.address, serviceRegistry.address, [], [])
         ).to.be.revertedWithCustomError(airdrop, "WrongArrayLength");
-    });
-
-    it("constructor reverts on wrong amount sum", async function () {
-        const StakingAirdrop = await ethers.getContractFactory("StakingAirdrop");
-        await expect(
-            StakingAirdrop.deploy(token.address, serviceRegistry.address, [serviceId], [9999])
-        ).to.be.revertedWithCustomError(airdrop, "WrongAmount");
     });
 
     it("claim success and emits event to multisig", async function () {
@@ -105,7 +103,7 @@ describe("StakingAirdrop", function () {
         ).to.be.revertedWithCustomError(airdrop, "NonZeroValue");
     });
 
-    it("claimForAll transfers to multisigs and emits events", async function () {
+    it("claimAll transfers to multisigs and emits events", async function () {
         // set multiple ids
         const id2 = 2;
         await serviceRegistry.setService(id2, 0, other.address, ethers.constants.HashZero, 0, 0, 0, 0);
@@ -123,7 +121,7 @@ describe("StakingAirdrop", function () {
         const balanceBefore = await token.balanceOf(deployer.address);
         const balanceBefore2 = await token.balanceOf(other.address);
 
-        await expect(drop.claimForAll())
+        await expect(drop.claimAll())
             .to.emit(drop, "Claimed").withArgs(deployer.address, serviceId, deployer.address, "7000")
             .and.to.emit(drop, "Claimed").withArgs(deployer.address, id2, other.address, "3000");
 
@@ -136,7 +134,7 @@ describe("StakingAirdrop", function () {
         expect(balanceDiff2).to.equal(3000);
     });
 
-    it("claimForAll skips zero amounts and reverts if total overflow", async function () {
+    it("claimAll skips zero amounts and reverts if total overflow", async function () {
         const id2 = 2;
         await serviceRegistry.setService(id2, 0, other.address, ethers.constants.HashZero, 0, 0, 0, 0);
 
@@ -150,7 +148,7 @@ describe("StakingAirdrop", function () {
         await drop.deployed();
         // fund insufficiently
         await token.transfer(drop.address, 9000);
-        await expect(drop.claimForAll()).to.be.revertedWithCustomError(drop, "Overflow");
+        await expect(drop.claimAll()).to.be.revertedWithCustomError(drop, "Overflow");
     });
 });
 
