@@ -14,8 +14,10 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-attestationTrackerAddress=$(jq -r '.attestationTrackerAddress' $globals)
-livenessRatio=$(jq -r '.livenessRatio' $globals)
+usdcAddress=$(jq -r '.usdcAddress' $globals)
+serviceRegistryAddress=$(jq -r '.serviceRegistryAddress' $globals)
+serviceIds=$(jq -r '.serviceIds' $globals)
+amounts=$(jq -r '.amounts' $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -32,9 +34,9 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-contractName="QuorumStakingTokenActivityChecker"
-contractPath="contracts/externals/backland/$contractName.sol:$contractName"
-constructorArgs="$attestationTrackerAddress $livenessRatio"
+contractName="StakingAirdrop"
+contractPath="contracts/airdrop/$contractName.sol:$contractName"
+constructorArgs="$usdcAddress $serviceRegistryAddress $serviceIds $amounts"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 
@@ -55,10 +57,10 @@ echo "Deployment of: $contractArgs"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-quorumActivityCheckerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+stakingAirdropAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#quorumActivityCheckerAddress}
+outputLength=${#stakingAirdropAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
@@ -67,11 +69,11 @@ if [ $outputLength != 42 ]; then
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"quorumActivityCheckerAddress":"'$quorumActivityCheckerAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"stakingAirdropAddress":"'$stakingAirdropAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$quorumActivityCheckerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,uint256)" $constructorArgs)"
+  contractParams="$stakingAirdropAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,uint256[],uint256[])" $constructorArgs)"
 
   echo "Verifying contract on Etherscan..."
   forge verify-contract --chain-id "$chainId" --etherscan-api-key "$ETHERSCAN_API_KEY" $contractParams
@@ -83,4 +85,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "$contractName deployed at: $quorumActivityCheckerAddress"
+echo "$contractName deployed at: $stakingAirdropAddress"
