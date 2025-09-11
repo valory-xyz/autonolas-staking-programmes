@@ -171,6 +171,7 @@ describe("StakingAirdrop", function () {
         );
         await drop.deployed();
 
+        // Fund airdrop contract
         const totalAmount = await drop.airdropAmount();
         await token.transfer(drop.address, totalAmount);
 
@@ -184,6 +185,17 @@ describe("StakingAirdrop", function () {
         // The drop contract balance must be zero after all the claims
         const balanceAfter = await token.balanceOf(drop.address);
         expect(balanceAfter).to.equal(0);
+
+        // Fund airdrop contract once again
+        await token.transfer(drop.address, totalAmount);
+
+        // Try to claim
+        await expect(
+            drop.claim(5)
+        ).to.be.revertedWithCustomError(drop, "ZeroValue");
+        await expect(
+            drop.claimAll()
+        ).to.be.revertedWithCustomError(drop, "ZeroValue");
     });
 });
 

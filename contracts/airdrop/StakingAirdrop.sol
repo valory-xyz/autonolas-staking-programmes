@@ -202,6 +202,11 @@ contract StakingAirdrop {
             }
         }
 
+        // Check for total claimable amount
+        if (totalAmount == 0) {
+            revert ZeroValue();
+        }
+
         // Get contract balance
         uint256 balance = IToken(token).balanceOf(address(this));
         // Check for total amount overflow
