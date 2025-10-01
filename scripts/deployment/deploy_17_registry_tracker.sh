@@ -11,12 +11,8 @@ fi
 contractVerification=$(jq -r '.contractVerification' $globals)
 useLedger=$(jq -r '.useLedger' $globals)
 derivationPath=$(jq -r '.derivationPath' $globals)
-gasPriceInGwei=$(jq -r '.gasPriceInGwei' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
-
-serviceRegistryAddress=$(jq -r '.serviceRegistryAddress' $globals)
-stakingFactoryAddress=$(jq -r '.stakingFactoryAddress' $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -33,7 +29,11 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-contractPath="contracts/registry_tracker/RegistryTracker.sol:RegistryTracker"
+serviceRegistryAddress=$(jq -r '.serviceRegistryAddress' $globals)
+stakingFactoryAddress=$(jq -r '.stakingFactoryAddress' $globals)
+
+contractName="RegistryTracker"
+contractPath="contracts/registry_tracker/$contractName.sol:$contractName"
 constructorArgs="$serviceRegistryAddress $stakingFactoryAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
@@ -82,4 +82,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Recovery Module deployed at: $registryTrackerAddress"
+echo "$contractName deployed at: $registryTrackerAddress"

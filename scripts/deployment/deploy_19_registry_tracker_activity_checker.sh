@@ -11,11 +11,8 @@ fi
 contractVerification=$(jq -r '.contractVerification' $globals)
 useLedger=$(jq -r '.useLedger' $globals)
 derivationPath=$(jq -r '.derivationPath' $globals)
-gasPriceInGwei=$(jq -r '.gasPriceInGwei' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
-
-registryTrackerProxyAddress=$(jq -r '.registryTrackerProxyAddress' $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -32,7 +29,10 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-contractPath="contracts/registry_tracker/RegistryTrackerActivityChecker.sol:RegistryTrackerActivityChecker"
+registryTrackerProxyAddress=$(jq -r '.registryTrackerProxyAddress' $globals)
+
+contractName="RegistryTrackerActivityChecker"
+contractPath="contracts/registry_tracker/$contractName.sol:$contractName"
 constructorArgs="$registryTrackerProxyAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
@@ -82,4 +82,13 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Recovery Module deployed at: $registryTrackerActivityCheckerAddress"
+echo "$contractName deployed at: $registryTrackerActivityCheckerAddress"
+
+castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
+
+echo "Whitelists registry tracker activity checker hash"
+castArgs="$registryTrackerProxyAddress whitelistActivityCheckerHashes(address[]) [$registryTrackerActivityCheckerAddress]"
+echo $castArgs
+castCmd="$castSendHeader $castArgs"
+result=$($castCmd)
+echo "$result" | grep "status"
