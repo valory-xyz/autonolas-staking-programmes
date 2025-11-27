@@ -15,7 +15,7 @@
   "multisigProxyHash130": "0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
   "serviceRegistryAddress": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
   "serviceRegistryTokenUtilityAddress": "0x34C895f302D0b5cf52ec0Edd3945321EB0f83dd5",
-  "serviceManagerTokenAddress": "0x63e66d7ad413C01A7b49C7FF4e3Bb765C4E4bd1b",
+  "serviceManagerProxyAddress": "0x1262136cac6a06A782DC94eb3a3dF0b4d09FF6A6",
   "gnosisSafeMultisigImplementationAddress": "0x22bE6fDcd3e29851B29b512F714C328A00A96B83",
   "stakingTokenAddress": "0xEB5638eefE289691EcE01943f768EDBF96258a80",
   "stakingFactoryAddress": "0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
