@@ -12,7 +12,7 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const serviceManagerTokenAddress = parsedData.serviceManagerTokenAddress;
+    const serviceManagerProxyAddress = parsedData.serviceManagerProxyAddress;
     const olasAddress = parsedData.olasAddress;
     const stakingFactoryAddress = parsedData.stakingFactoryAddress;
     const agentId = parsedData.agentId;
@@ -50,7 +50,7 @@ async function main() {
     console.log("You are signing the following transaction: Contributors.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const Contributors = await ethers.getContractFactory("Contributors");
-    const contributors = await Contributors.connect(EOA).deploy(serviceManagerTokenAddress, olasAddress,
+    const contributors = await Contributors.connect(EOA).deploy(serviceManagerProxyAddress, olasAddress,
         stakingFactoryAddress, agentId, configHash, { gasPrice });
     const result = await contributors.deployed();
 
