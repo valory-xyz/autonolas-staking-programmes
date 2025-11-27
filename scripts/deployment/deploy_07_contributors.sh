@@ -86,4 +86,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Recovery Module deployed at: $contributorsAddress"
+echo "$contractName deployed at: $contributorsAddress"
