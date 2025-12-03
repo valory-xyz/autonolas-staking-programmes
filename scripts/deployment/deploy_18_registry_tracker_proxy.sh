@@ -11,12 +11,8 @@ fi
 contractVerification=$(jq -r '.contractVerification' $globals)
 useLedger=$(jq -r '.useLedger' $globals)
 derivationPath=$(jq -r '.derivationPath' $globals)
-gasPriceInGwei=$(jq -r '.gasPriceInGwei' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
-
-registryTrackerAddress=$(jq -r '.registryTrackerAddress' $globals)
-rewardPeriod=$(jq -r '.rewardPeriod' $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -33,8 +29,12 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
+registryTrackerAddress=$(jq -r '.registryTrackerAddress' $globals)
+rewardPeriod=$(jq -r '.rewardPeriod' $globals)
 proxyData=$(cast calldata "initialize(uint256)" $rewardPeriod)
-contractPath="contracts/registry_tracker/RegistryTrackerProxy.sol:RegistryTrackerProxy"
+
+contractName="RegistryTrackerProxy"
+contractPath="contracts/registry_tracker/$contractName.sol:$contractName"
 constructorArgs="$registryTrackerAddress $proxyData"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
@@ -84,4 +84,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Recovery Module deployed at: $registryTrackerProxyAddress"
+echo "$contractName deployed at: $registryTrackerProxyAddress"
