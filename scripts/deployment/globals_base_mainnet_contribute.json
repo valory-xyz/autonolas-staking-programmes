@@ -7,6 +7,7 @@
   "networkURL": "https://mainnet.base.org",
   "blockscoutURL": "https://base.blockscout.com",
   "gasPriceInGwei": "2",
+  "baseL1CrossDomainMessengerProxyAddress": "0x866E82a600A1414e583f7F13623F1aC5d58b0Afa",
   "bridgeMediatorAddress": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA",
   "gnosisSafeAddress": "0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552",
   "gnosisSafeProxyFactoryAddress": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
