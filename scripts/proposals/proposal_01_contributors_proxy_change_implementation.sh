@@ -19,6 +19,8 @@ baseL1CrossDomainMessengerProxyAddress=$(jq -r ".baseL1CrossDomainMessengerProxy
 # Raw payload for L2 execution
 rawPayload=$(cast calldata "changeImplementation(address)" $contributorsAddress)
 rawPayloadLength=${#rawPayload}
+# payload length = number of bytes / 2 (2 digits for 1 byte) - 1 (0x prefix)
+rawPayloadLength=$((rawPayloadLength / 2 - 1))
 
 # Data to be called from bridgeMediator
 data=$(cast abi-encode --packed "(address,uint96,uint32,bytes)" $contributorsProxyAddress 0 $rawPayloadLength $rawPayload)
