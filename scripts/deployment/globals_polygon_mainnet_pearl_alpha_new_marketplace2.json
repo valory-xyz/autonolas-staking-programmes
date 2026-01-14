@@ -13,14 +13,14 @@
   "polySafeProxyBytecodeHash": "0x92565062fdea8761e07d9df2fcdbd66c0582af6ddf0e0355bc07754ad97400b0",
   "stakingTokenAddress":"0x4aba1Cf7a39a51D75cBa789f5f21cf4882162519",
   "mechMarketplaceAddress":"0x343F2B005cF6D70bA610CD9F1F1927049414B582",
-  "livenessRatio":"92592592592592", // 8 per day
+  "livenessRatio":"92592592592592", 
   "requesterActivityCheckerAddress":"",
   "stakingFactoryAddress":"0x46C0D07F55d4F9B5Eed2Fc9680B5953e5fd7b461",
   "stakingParams":
     {
       "metadataHash":"",
       "maxNumServices":"50",
-      "rewardsPerSecond":"31709791983765",  // 100 APY
+      "rewardsPerSecond":"31709791983765", 
       "minStakingDeposit":"500000000000000000000",
       "minNumStakingPeriods":"3",
       "maxNumInactivityPeriods":"2",
