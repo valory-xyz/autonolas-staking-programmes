@@ -3,6 +3,7 @@
   "useLedger":true,
   "derivationPath":"m/44'/60'/2'/0/0",
   "providerName":"polygon",
+  "chainId": "137",
   "networkURL":"https://polygon-mainnet.g.alchemy.com/v2/",
   "gasPriceInGwei":"100",
   "gnosisSafeAddress":"0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552",
