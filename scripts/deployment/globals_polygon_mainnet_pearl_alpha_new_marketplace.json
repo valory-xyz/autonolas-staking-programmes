@@ -20,8 +20,8 @@
     {
       "metadataHash":"",
       "maxNumServices":"100",
-      "rewardsPerSecond":"1649305555557",
-      "minStakingDeposit":"20000000000000000000",
+      "rewardsPerSecond":"3170979198377", // 100 APY 
+      "minStakingDeposit":"50000000000000000000",
       "minNumStakingPeriods":"3",
       "maxNumInactivityPeriods":"2",
       "livenessPeriod":"86400",
