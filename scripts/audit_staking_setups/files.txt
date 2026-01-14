@@ -1,1 +1,0 @@
-scripts/deployment/globals_polygon_mainnet_pearl_alpha_new_marketplace3.json
