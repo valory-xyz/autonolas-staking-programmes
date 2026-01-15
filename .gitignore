@@ -9,3 +9,6 @@ typechain
 # Hardhat files
 cache
 artifacts
+
+# Other files
+scripts/audit_staking_setups/files.txt
