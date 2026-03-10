@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/*global process,__dirname*/
 
 const fs = require("fs");
 const path = require("path");
