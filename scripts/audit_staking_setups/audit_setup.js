@@ -1,4 +1,4 @@
-/*global process*/
+/*global process,__dirname*/
 
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
