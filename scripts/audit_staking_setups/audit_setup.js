@@ -5,6 +5,9 @@ const { expect } = require("chai");
 const fs = require("fs");
 const path = require("path");
 
+// This default is derived from the Hardhat setup and is used only to derive a wallet for RPC eth_call reads.
+// The script only calls view/read functions; it does not send transactions, modify chain state, or spend funds.
+// No funds are required for wallets generated from this seed phrase.
 const DEFAULT_MNEMONIC =
     "velvet deliver grief train result fortune travel voice over subject subject staff nominee bone name";
 const DEPLOYMENT_DIR = path.resolve(__dirname, "../deployment");
