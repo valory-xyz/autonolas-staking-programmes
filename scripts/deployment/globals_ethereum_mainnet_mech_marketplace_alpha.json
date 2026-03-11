@@ -35,6 +35,6 @@
     "serviceRegistry": "0x48b6af7B12C71f09e2fC8aF4855De4Ff54e775cA",
     "activityChecker": "0x1fA9814018Cd6130df0f5C3420F397E90a7Dafc3"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0x5a40e2661b3ee672e945445f885f975a51a6c461",
   "mechMarketplaceAddress": "0x3d6494CE09a9f40c0B5a92BdBD7c7A9b0e3912b1"
 }
