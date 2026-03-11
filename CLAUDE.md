@@ -65,6 +65,19 @@ npx hardhat coverage
 
 Numbered scripts in `scripts/deployment/` (deploy_01 through deploy_20). Each script targets a specific contract. Configuration via `globals_<network>.json` files. Supports Ledger hardware wallet signing.
 
+#### Legacy folders
+
+- **`scripts/deployment/legacy_deployment_scripts/`** — Archived `globals_*.json` config files for staking contracts that have been removed from VoteWeighting (unnominated). These are no longer active but kept for historical reference.
+- **`scripts/deployment/legacy_js_scripts/`** — Old Hardhat JS deployment scripts replaced by newer shell-based (`*.sh`) equivalents.
+
+#### Cleanup script: `move_unnominated_to_legacy.py`
+
+`scripts/deployment/move_unnominated_to_legacy.py` automates archival of obsolete deployment configs. It scans `RemoveNominee` events from the VoteWeighting contract on Ethereum mainnet, then moves any `globals_*.json` file whose `stakingTokenInstanceAddress` matches a removed nominee into `legacy_deployment_scripts/`. Requires `ETHERSCAN_API_KEY` env var and Python packages `web3` and `requests`.
+
+```bash
+ETHERSCAN_API_KEY=<key> python scripts/deployment/move_unnominated_to_legacy.py
+```
+
 ### Dependencies
 
 Git submodules in `lib/` (autonolas-registries, solmate, forge-std). Checkout with `--recurse-submodules`.

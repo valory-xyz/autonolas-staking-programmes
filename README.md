@@ -61,6 +61,16 @@ The list of contract addresses for different networks and corresponding staking 
 The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
 The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment).
 
+Configuration files for staking contracts that have been removed from VoteWeighting (unnominated) are archived in
+[legacy_deployment_scripts](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment/legacy_deployment_scripts).
+Similarly, old Hardhat JS deployment scripts that have been superseded by shell-based scripts are archived in
+[legacy_js_scripts](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/scripts/deployment/legacy_js_scripts).
+
+To automatically move unnominated globals configs into the legacy folder, run:
+```
+ETHERSCAN_API_KEY=<key> python scripts/deployment/move_unnominated_to_legacy.py
+```
+
 The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/abis).
 Each folder there contains contracts compiled with the solidity version before their deployment.
 
