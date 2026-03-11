@@ -14,7 +14,7 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-# Check for Polygon keys only since on other networks those are not needed
+# Check for Alchemy keys on ETH, Polygon mainnets and testnets
 if [[ "$networkURL" == *"alchemy.com"* ]]; then
   case $chainId in
     1)        API_KEY=$ALCHEMY_API_KEY_MAINNET; keyName="ALCHEMY_API_KEY_MAINNET" ;;
@@ -23,18 +23,18 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
     80002)    API_KEY=$ALCHEMY_API_KEY_AMOY;    keyName="ALCHEMY_API_KEY_AMOY" ;;
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
-    echo "set $keyName env variable"
+    echo "${red}!!! Set $keyName env variable${reset}"
     exit 0
   fi
 fi
 
-serviceRegistryAddress=$(jq -r '.serviceRegistryAddress' $globals)
-stakingFactoryAddress=$(jq -r '.stakingFactoryAddress' $globals)
+livenessRatio=$(jq -r '.livenessRatio' $globals)
 
-contractName="RegistryTracker"
-contractPath="contracts/registry_tracker/$contractName.sol:$contractName"
-constructorArgs="$serviceRegistryAddress $stakingFactoryAddress"
+contractName="StakingActivityChecker"
+contractPath="lib/autonolas-registries/contracts/staking/$contractName.sol:$contractName"
+constructorArgs="$livenessRatio"
 contractArgs="$contractPath --constructor-args $constructorArgs"
+
 
 # Get deployer based on the ledger flag
 if [ "$useLedger" == "true" ]; then
@@ -53,10 +53,10 @@ echo "Deployment of: $contractArgs"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-registryTrackerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+stakingActivityCheckerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#registryTrackerAddress}
+outputLength=${#stakingActivityCheckerAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
@@ -65,11 +65,11 @@ if [ $outputLength != 42 ]; then
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"registryTrackerAddress":"'$registryTrackerAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"stakingActivityCheckerAddress":"'$stakingActivityCheckerAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$registryTrackerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address)" $constructorArgs)"
+  contractParams="$stakingActivityCheckerAddress $contractPath --constructor-args $(cast abi-encode "constructor(uint256)" $constructorArgs)"
 
   echo "Verifying contract on Etherscan..."
   forge verify-contract --chain-id "$chainId" --etherscan-api-key "$ETHERSCAN_API_KEY" $contractParams
@@ -81,4 +81,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "$contractName deployed at: $registryTrackerAddress"
+echo "$contractName deployed at: $stakingActivityCheckerAddress"
