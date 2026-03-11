@@ -226,6 +226,32 @@ function applyFilters(entries, options) {
     });
 }
 
+function resolveNetworkURL(params) {
+    const networkURL = (params.networkURL || "").trim();
+    if (!networkURL) {
+        return networkURL;
+    }
+
+    // For Alchemy base URLs stored as ".../v2/", append the appropriate API key.
+    if (networkURL.includes("alchemy.com") && networkURL.endsWith("/v2/")) {
+        const chainId = String(params.chainId || "");
+        const keyByChainId = {
+            "1": process.env.ALCHEMY_API_KEY_MAINNET,
+            "137": process.env.ALCHEMY_API_KEY_MATIC,
+            "11155111": process.env.ALCHEMY_API_KEY_SEPOLIA,
+            "80002": process.env.ALCHEMY_API_KEY_AMOY
+        };
+        const apiKey = keyByChainId[chainId];
+        if (!apiKey) {
+            throw new Error(`Missing Alchemy API key for chainId=${chainId || "<unknown>"} and networkURL=${networkURL}`);
+        }
+
+        return networkURL + apiKey;
+    }
+
+    return networkURL;
+}
+
 function getWallet(networkURL, mnemonic, walletCache) {
     if (walletCache.has(networkURL)) {
         return walletCache.get(networkURL);
@@ -267,7 +293,7 @@ async function auditEntry(entry, context) {
         }
 
         try {
-            const wallet = getWallet(params.networkURL, mnemonic, walletCache);
+            const wallet = getWallet(resolveNetworkURL(params), mnemonic, walletCache);
             const activityChecker = new ethers.Contract(activityCheckerAddress, ACTIVITY_CHECKER_ABI, wallet);
             const livenessRatio = await activityChecker.livenessRatio();
             customExpect(livenessRatio, params.livenessRatio, logPrefix + ", livenessRatio", stats);
@@ -300,7 +326,7 @@ async function auditEntry(entry, context) {
     }
 
     try {
-        const wallet = getWallet(params.networkURL, mnemonic, walletCache);
+        const wallet = getWallet(resolveNetworkURL(params), mnemonic, walletCache);
         const stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress, wallet);
 
         const log = "Contract " + stakingTokenAddress + ", chain: " + params.providerName;
