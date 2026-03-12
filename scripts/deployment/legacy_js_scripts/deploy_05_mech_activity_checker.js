@@ -16,17 +16,30 @@ async function main() {
     const livenessRatio = parsedData.livenessRatio;
 
     let networkURL = parsedData.networkURL;
-    if (providerName === "polygon") {
-        if (!process.env.ALCHEMY_API_KEY_MATIC) {
-            console.log("set ALCHEMY_API_KEY_MATIC env variable");
+    const appendAlchemyKeyIfNeeded = (apiKeyName) => {
+        if (!networkURL.endsWith("/v2/")) {
+            return true;
         }
-        networkURL += process.env.ALCHEMY_API_KEY_MATIC;
-    } else if (providerName === "polygonAmoy") {
-        if (!process.env.ALCHEMY_API_KEY_AMOY) {
-            console.log("set ALCHEMY_API_KEY_AMOY env variable");
+        if (!process.env[apiKeyName]) {
+            console.log(`set ${apiKeyName} env variable`);
+            return false;
+        }
+        networkURL += process.env[apiKeyName];
+        return true;
+    };
+
+    if (providerName === "mainnet") {
+        if (!appendAlchemyKeyIfNeeded("ALCHEMY_API_KEY_MAINNET")) {
             return;
         }
-        networkURL += process.env.ALCHEMY_API_KEY_AMOY;
+    } else if (providerName === "polygon") {
+        if (!appendAlchemyKeyIfNeeded("ALCHEMY_API_KEY_MATIC")) {
+            return;
+        }
+    } else if (providerName === "polygonAmoy") {
+        if (!appendAlchemyKeyIfNeeded("ALCHEMY_API_KEY_AMOY")) {
+            return;
+        }
     }
 
     const provider = new ethers.providers.JsonRpcProvider(networkURL);
