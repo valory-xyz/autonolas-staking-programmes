@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
+
 /// @dev Service Registry interface
 interface IServiceRegistry {
     /// @dev Gets the service instance from the map of services.
@@ -22,12 +24,6 @@ interface IToken {
     /// @param account Account address.
     /// @return Amount of tokens owned.
     function balanceOf(address account) external view returns (uint256);
-
-    /// @dev Transfers the token amount.
-    /// @param to Address to transfer to.
-    /// @param amount The amount to transfer.
-    /// @return True if the function execution is successful.
-    function transfer(address to, uint256 amount) external returns (bool);
 }
 
 /// @dev Provided zero address.
@@ -163,7 +159,7 @@ contract StakingAirdrop {
         mapServiceIdAirdropAmount[serviceId] = 0;
 
         // Transfer airdrop tokens
-        IToken(token).transfer(multisig, amount);
+        SafeTransferLib.safeTransfer(token, multisig, amount);
 
         emit Claimed(msg.sender, serviceId, multisig, amount);
 
@@ -231,7 +227,7 @@ contract StakingAirdrop {
             }
 
             // Transfer airdrop tokens
-            IToken(token).transfer(multisig, localAmounts[i]);
+            SafeTransferLib.safeTransfer(token, multisig, localAmounts[i]);
 
             emit Claimed(msg.sender, localServiceIds[i], multisig, localAmounts[i]);
         }

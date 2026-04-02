@@ -40,11 +40,15 @@
 
 **Exploit analysis**: No exploit path. OLAS token is hardcoded via immutable `olas` address, validated in constructor. OLAS is standard ERC20 that reverts on failure. Documented design choice consistent with other Olas repositories.
 
+> **Resolution**: Won't fix. OLAS token is hardcoded and reverts on failure.
+
 ### L-2: Unchecked ERC20 transfer return values in RecovererContributeManager.sol
 
 **File**: `RecovererContributeManager.sol:173,195`
 
 Same pattern as L-1. OLAS token hardcoded. No exploit path.
+
+> **Resolution**: Won't fix. OLAS token is hardcoded and reverts on failure.
 
 ### L-3: Unchecked ERC20 transfer in StakingAirdrop.sol with arbitrary token
 
@@ -58,6 +62,8 @@ Unlike Contributors (hardcoded to OLAS), StakingAirdrop accepts an **arbitrary t
 
 **Recommendation**: Use `SafeTransferLib.safeTransfer()` (already available in repo at `contracts/libraries/SafeTransferLib.sol`).
 
+> **Resolution**: Fixed. Replaced `IToken(token).transfer()` with `SafeTransferLib.safeTransfer()` in both `claim()` and `claimAll()`.
+
 ### L-4: QuorumStakingTokenActivityChecker potential underflow
 
 **File**: `externals/backland/QuorumStakingTokenActivityChecker.sol:74`
@@ -68,17 +74,19 @@ ratio = (((curNonces[2] - lastNonces[2]) + (curNonces[3] - lastNonces[3])) * 1e1
 
 If external `getVotingStats` returns decreasing nonces (bug or reset in quorum tracker), this underflows and reverts. The staking contract would treat the service as inactive (eviction). Risk bounded by external contract trust assumption.
 
+> **Resolution**: Out of scope. External contract dependency; underflow revert is acceptable behavior.
+
 ---
 
 ## Informational Findings
 
-| ID | Title | File |
-|----|-------|------|
-| I-1 | Wrong error type: `ZeroAddress()` instead of `ZeroValue()` | RegistryTracker.sol:209 |
-| I-2 | `attestByDelegation` counter increment by anyone | DualStakingToken.sol:332 (no exploit: requires staked multisig bit) |
-| I-3 | DualStakingToken fallback staticcall proxy exposes all view functions | DualStakingToken.sol:349 |
-| I-4 | Predictable create2 salt in Contributors | Contributors.sol:464 (non-exploitable: immediate deploy+stake) |
-| I-5 | RecovererContributeManager assumes single-owner multisig | RecovererContributeManager.sol:145 (see analysis below) |
+| ID | Title | File | Resolution |
+|----|-------|------|------------|
+| I-1 | Wrong error type: `ZeroAddress()` instead of `ZeroValue()` | RegistryTracker.sol:209 | **Fixed** |
+| I-2 | `attestByDelegation` counter increment by anyone | DualStakingToken.sol:332 (no exploit: requires staked multisig bit) | **Won't fix** |
+| I-3 | DualStakingToken fallback staticcall proxy exposes all view functions | DualStakingToken.sol:349 | **Won't fix** |
+| I-4 | Predictable create2 salt in Contributors | Contributors.sol:464 (non-exploitable: immediate deploy+stake) | **Won't fix** |
+| I-5 | RecovererContributeManager assumes single-owner multisig | RecovererContributeManager.sol:145 (see analysis below) | **Won't fix**: by design |
 
 ---
 
@@ -146,13 +154,15 @@ The constraint is **architecturally enforced but not documented** in RecovererCo
 
 **Recommendation**: Add a comment documenting the single-agent assumption, or iterate over all owners instead of checking only `multisigOwners[0]`.
 
+> **Resolution**: Won't fix. Single multisig signer is by design, enforced by the Contributors contract implementation (`NUM_AGENT_INSTANCES = 1`).
+
 ---
 
 ## Test Coverage Gaps
 
 | Contract | Test References | Risk |
 |----------|:-:|------|
-| RequesterSingleMechActivityChecker | 0 | Low — simple view-only math, underflow = benign revert |
+| RequesterSingleMechActivityChecker | 0 | Low — simple view-only math, underflow = benign revert. Deprecated and moved to `contracts/mech_usage/deprecated/` |
 | SafeTransferLib | 0 | Low — solmate-audited assembly, verified correct |
 | RecovererContributeManager | 2 | Low — CEI correct, OLAS-only, manually verified |
 
