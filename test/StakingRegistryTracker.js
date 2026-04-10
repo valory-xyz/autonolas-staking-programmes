@@ -323,7 +323,7 @@ describe("Staking Registry Tracker", function () {
         it("Change reward period zero value", async function () {
             await expect(
                 registryTracker.changeRewardPeriod(0)
-            ).to.be.revertedWithCustomError(registryTracker, "ZeroAddress");
+            ).to.be.revertedWithCustomError(registryTracker, "ZeroValue");
         });
     });
 

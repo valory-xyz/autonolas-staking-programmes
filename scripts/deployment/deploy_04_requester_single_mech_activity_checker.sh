@@ -32,7 +32,7 @@ agentMechAddress=$(jq -r '.agentMechAddress' $globals)
 livenessRatio=$(jq -r '.livenessRatio' $globals)
 
 contractName="RequesterSingleMechActivityChecker"
-contractPath="contracts/mech_usage/$contractName.sol:$contractName"
+contractPath="contracts/mech_usage/deprecated/$contractName.sol:$contractName"
 constructorArgs="$agentMechAddress $livenessRatio"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
