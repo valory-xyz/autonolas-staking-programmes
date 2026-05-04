@@ -122,9 +122,12 @@ function buildOutput(inputPath) {
     // Prefer explicit "name" field if present; fallback to filename without extension.
     const name = data.name || path.basename(inputPath, ".json");
 
+    const generatedDescription = `This staking contract offers ${maxNumServices} slots for operators running Olas Predict agents interacting with mechs registered on the new marketplace. It requires ${stakeOlas} OLAS for staking and ${dailyKPI.toString()} daily mech calls to meet KPI.`;
+    const description = data.description || generatedDescription;
+
     const output = [
         `Name: ${name}`,
-        `Description: This staking contract offers ${maxNumServices} slots for operators running Olas Predict agents interacting with mechs registered on the new marketplace. It requires ${stakeOlas} OLAS for staking and ${dailyKPI.toString()} daily mech calls to meet KPI.`,
+        `Description: ${description}`,
         `slots: ${maxNumServices}`,
         `RewardPerSecond: ${rewardPerSecond}`,
         `Stake: ${stakeOlas}`,
