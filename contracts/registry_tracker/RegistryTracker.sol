@@ -206,7 +206,7 @@ contract RegistryTracker {
 
         // Check for zero value
         if (newRewardPeriod == 0) {
-            revert ZeroAddress();
+            revert ZeroValue();
         }
 
         rewardPeriod = newRewardPeriod;
