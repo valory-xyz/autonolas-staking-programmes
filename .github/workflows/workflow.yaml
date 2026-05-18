@@ -46,3 +46,16 @@ jobs:
       # Compile the code and run foundry tests
       - name: Run foundry tests
         run: forge test --hh -vvv
+
+  all-checks-passed:
+    name: All checks passed
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all required jobs succeeded
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "true" ]; then
+            echo "One or more required jobs failed, were cancelled, or skipped"
+            exit 1
+          fi
