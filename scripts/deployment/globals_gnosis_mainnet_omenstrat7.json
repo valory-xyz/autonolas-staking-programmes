@@ -19,7 +19,7 @@
   "requesterActivityCheckerAddress": "0x3514EeA47C03dF8d9FdD68A469908755d2870c48",
   "stakingFactoryAddress": "0xb0228CA253A88Bc8eb4ca70BCAC8f87b381f4700",
   "stakingParams": {
-    "metadataHash": "",
+    "metadataHash": "0x4f16d6537ed6575a0609f819304bb325c950e8e5b5107eae1ea502d73a608756",
     "maxNumServices": "50",
     "rewardsPerSecond": "15854895991882",
     "minStakingDeposit": "5000000000000000000000",
@@ -37,7 +37,7 @@
     "serviceRegistry": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
     "activityChecker": "0x3514EeA47C03dF8d9FdD68A469908755d2870c48"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0xB801FD1728Eef27418FE03720b1FF3E769F35152",
   "name": "Pearl Beta Mech Marketplace VII",
   "description": "This staking contract offers 50 slots for operators running Olas Predict agents interacting with mechs registered on the new marketplace. It requires 10000 OLAS for staking and 16 daily mech calls to meet kpi."
 }
