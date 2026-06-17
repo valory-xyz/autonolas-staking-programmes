@@ -41,6 +41,11 @@ contract RequesterActivityCheckerV2Test is Test {
         arr[1] = requestsCount;
     }
 
+    /// @dev VERSION constant is the expected V2 value.
+    function test_Version() external view {
+        assertEq(v2.VERSION(), "0.2.0", "unexpected VERSION");
+    }
+
     /// @dev The gap V2 closes: off-chain path where the Safe nonce did not advance but requests landed.
     ///      V1 fails on the curNonces[0] > lastNonces[0] precondition; V2 passes on the request count alone.
     function test_OffchainPath_V1Fails_V2Passes() external view {

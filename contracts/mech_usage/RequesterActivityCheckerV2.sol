@@ -42,6 +42,8 @@ error ZeroAddress();
 ///         (frontends, indexers, scripts, events) keep working; index 0 is informational only and is no
 ///         longer referenced inside isRatioPass.
 contract RequesterActivityCheckerV2 is StakingActivityChecker {
+    // Version number
+    string public constant VERSION = "0.2.0";
     // AI agent mech marketplace contract address.
     address public immutable mechMarketplace;
 
