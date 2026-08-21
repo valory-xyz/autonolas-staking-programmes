@@ -12,6 +12,9 @@
     - [6. MechActivityChecker under-counts batched signed deliveries](#6-mechactivitychecker-under-counts-batched-signed-deliveries)
     - [7. Activity liveness KPIs can be satisfied by self-generated mech usage](#7-activity-liveness-kpis-can-be-satisfied-by-self-generated-mech-usage)
     - [8. Zero-rate delivery entries count toward mech activity](#8-zero-rate-delivery-entries-count-toward-mech-activity)
+    - [9. StakingAirdrop.claimAll strands a zero-multisig entitlement](#9-stakingairdropclaimall-strands-a-zero-multisig-entitlement)
+    - [10. StakingAirdrop pays a terminated service's parked multisig](#10-stakingairdrop-pays-a-terminated-services-parked-multisig)
+    - [11. Contributors existing-service stake path does not enforce the OLAS staking token](#11-contributors-existing-service-stake-path-does-not-enforce-the-olas-staking-token)
 
 ## Involved contracts and level of the bugs
 
@@ -25,6 +28,8 @@ mitigation. Entries here are found in the current `main` sources.
 | DualStakingToken | Low |
 | RequesterActivityChecker | Low |
 | MechActivityChecker | Low |
+| StakingAirdrop | Low |
+| Contributors | Low |
 
 ## Vulnerabilities
 
@@ -203,3 +208,55 @@ self-generated-activity property as item 7.
 requester funds are taken; the only effect is that activity can be produced slightly more cheaply, still
 bounded by the deposit, threshold, gas and programme calibration described in item 7. A future revision could
 decline to count zero-rate entries toward activity, or require a minimum delivery rate.
+
+### 9. StakingAirdrop.claimAll strands a zero-multisig entitlement
+
+**Severity**: Low
+**Source**: internal review
+
+`claimAll()` runs two loops. The first loop zeroes every funded entitlement (`mapServiceIdAirdropAmount[id]
+= 0`) and accumulates the total. The second loop resolves each service's multisig and, if the service is
+still in `PreRegistration`, the registry returns `address(0)`; that branch emits `ZeroMultisigAddress` and
+`continue`s, skipping the transfer. Because the entitlement was already cleared in the first loop, that
+allocation is left permanently stranded in the airdrop contract — it is neither paid out nor recoverable via
+a later claim. The single-service `claim()` path instead reverts on the zero multisig, so only the batch path
+strands.
+
+**Impact is a self-stranding, not a theft.** The stranded amount belonged to that same service's own
+allocation; no other recipient's funds are affected and nothing is diverted to an attacker. The fix is to
+resolve the multisig and skip (without zeroing) before clearing the entitlement, so a not-yet-payable service
+retains its claim for a later call. Applies before the airdrop is deployed; no live exposure today.
+
+### 10. StakingAirdrop pays a terminated service's parked multisig
+
+**Severity**: Low
+**Source**: internal review
+
+Neither `claim()` nor `claimAll()` checks the service state before paying: they resolve the service's
+current multisig and transfer to it. A service that has been terminated (or otherwise parked) still resolves
+to its Safe, so the airdrop pays that Safe regardless of whether the service is an active, eligible
+participant at claim time.
+
+**Bounded to the pre-funded per-service allocation.** Amounts are set by the funder via
+`mapServiceIdAirdropAmount`, so a claim can never exceed what was explicitly allocated to that service; the
+issue is only that eligibility is not re-checked at claim time. A future revision could gate the claim on the
+service being in an eligible state (e.g. `Deployed`) rather than merely resolving a non-zero multisig.
+Applies before the airdrop is deployed; no live exposure today.
+
+### 11. Contributors existing-service stake path does not enforce the OLAS staking token
+
+**Severity**: Low
+**Source**: internal review
+
+The `token == olas` staking-token check lives only on the create-and-stake path (in the shared parameter
+check). The existing-service entry point `Contributors.stake(socialId, serviceId, stakingInstance)`
+validates the multisig owner set and the service state, then stakes via `_stake` **without** verifying
+`IStaking(stakingInstance).stakingToken() == olas`. A factory-verified native staking instance is therefore
+accepted on this path, and `_unstake` then treats the native `terminate()` refund (paid to the proxy in the
+native asset) as an OLAS amount and transfers that value out in OLAS.
+
+**No live exposure; bounded even in principle.** The `IToken(olas).transfer(...)` reverts unless the proxy
+independently holds pooled OLAS, and the deployed Contributors proxy holds none (the contribute programme is
+deprecated). At worst the pattern swaps `D` of the native asset for `D` of OLAS, bounded by whatever OLAS the
+proxy transiently holds. The fix is to enforce `stakingToken == olas` on the existing-service `stake()` path,
+mirroring the create path, so a native instance can never be staked through Contributors.
