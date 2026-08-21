@@ -23,11 +23,12 @@ its operational or contract-level mitigation. Entries here are found in the curr
 
 **Two clarifications about what this list is.**
 
-*Status varies per entry.* Unlike the sibling repositories' lists, not every entry here is a
-deliberately-unfixed trade-off that has been accepted. Several are identified defects with a
-recommended code fix and no acceptance decision recorded. Each entry therefore carries a **Status**
-line: `accepted` (a trade-off we are keeping), `fix pending` (a defect awaiting a change), or
-`fixed in source, pending redeployment`. Read the status before treating an entry as an accepted risk.
+*Every entry is live.* An entry is removed once its issue is resolved and deployed, so anything
+still listed here is either unresolved or awaiting deployment. Do not read a listing as an accepted
+trade-off: some entries are deliberately-unfixed trade-offs, others are identified defects with a
+recommended code fix and no acceptance decision recorded, and the entry body says which. The list
+carries no per-entry status field — on a list that deletes its own resolved entries such a field is
+redundant where it is right and misleading as soon as it goes stale.
 
 *Scope.* This repository is not currently among those whose vulnerabilities lists the public Olas
 bug-bounty programme enumerates in its known-issues clause, and these contracts do not currently
@@ -50,7 +51,6 @@ scope, this list should be added to that clause at the same time.
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 `RegistryTracker.registerServiceMultisig` guards against re-registration by the service **multisig**:
 
@@ -77,7 +77,6 @@ marker) so a service Id is eligible once regardless of multisig rotation.
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 `RegistryTracker.registerServiceMultisig` verifies the staking instance only by a nonzero implementation:
 
@@ -103,7 +102,6 @@ campaign can exclude disabled instances in the interim.
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 `DualStakingToken.restake()` recovers an `Evicted` service by calling the base unstake, but discards the
 returned reward and never runs the second-token conversion:
@@ -132,7 +130,6 @@ protocol drain, and a staker can `unstake` (which does convert) and re-stake man
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 `DualStakingToken.unstake()` clears the multisig activity marker before delegating to the base:
 
@@ -158,7 +155,6 @@ unstake/checkpoint (or checkpoint before clearing), so the pending period is cre
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 The V1 `RequesterActivityChecker` reports `[Safe nonce, mapRequestCounts(requester)]` and requires the
 request-count delta to be backed by the requester Safe's nonce growth. In the signed-delivery flow the mech
@@ -176,7 +172,6 @@ affected), and the resolution is simply to use V2, which the protocol already do
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 `MechActivityChecker` reports `[Safe nonce, mapMechServiceDeliveryCounts(multisig)]` and enforces
 `(cur[1] - last[1]) <= (cur[0] - last[0])` — every delivery-count increment must be backed by a service-Safe
@@ -194,7 +189,6 @@ item 7 — relaxing it would re-open self-generated count inflation — so it is
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 The staking liveness KPI rewards a service for on-chain mech usage above a threshold
 (`ratio >= livenessRatio`). Because genuine and self-generated usage are indistinguishable on-chain, a
@@ -218,7 +212,6 @@ programme.
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 A mixed Nevermined delivery batch can include zero-rate entries that are still marked `Delivered` and counted
 in `mapMechDeliveryCounts` / `mapMechServiceDeliveryCounts`, while only the positive-rate entry settles
@@ -234,7 +227,6 @@ decline to count zero-rate entries toward activity, or require a minimum deliver
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 `claimAll()` runs two loops. The first loop zeroes every funded entitlement (`mapServiceIdAirdropAmount[id]
 = 0`) and accumulates the total. The second loop resolves each service's multisig and, if the service is
@@ -253,7 +245,6 @@ retains its claim for a later call. Applies before the airdrop is deployed; no l
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 Neither `claim()` nor `claimAll()` checks the service state before paying: they resolve the service's
 current multisig and transfer to it. A service that has been terminated (or otherwise parked) still resolves
@@ -270,7 +261,6 @@ Applies before the airdrop is deployed; no live exposure today.
 
 **Severity**: Low
 **Source**: internal review
-**Status**: fix pending
 
 The `token == olas` staking-token check lives only on the create-and-stake path (in the shared parameter
 check). The existing-service entry point `Contributors.stake(socialId, serviceId, stakingInstance)`
