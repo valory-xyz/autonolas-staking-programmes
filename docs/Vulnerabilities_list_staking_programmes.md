@@ -8,13 +8,15 @@
     - [2. RegistryTracker accepts a disabled staking instance](#2-registrytracker-accepts-a-disabled-staking-instance)
     - [3. DualStakingToken.restake discards the base staking reward](#3-dualstakingtokenrestake-discards-the-base-staking-reward)
     - [4. DualStakingToken.unstake clears the activity marker before the base checkpoint](#4-dualstakingtokenunstake-clears-the-activity-marker-before-the-base-checkpoint)
-    - [5. RequesterActivityChecker (V1) under-counts signed deliveries](#5-requesteractivitychecker-v1-under-counts-signed-deliveries)
+    - [5. RequesterActivityChecker (V1) under-counts requests not backed one-for-one by Safe nonce growth](#5-requesteractivitychecker-v1-under-counts-requests-not-backed-one-for-one-by-safe-nonce-growth)
     - [6. MechActivityChecker under-counts batched signed deliveries](#6-mechactivitychecker-under-counts-batched-signed-deliveries)
     - [7. Activity liveness KPIs can be satisfied by self-generated mech usage](#7-activity-liveness-kpis-can-be-satisfied-by-self-generated-mech-usage)
     - [8. Zero-rate delivery entries count toward mech activity](#8-zero-rate-delivery-entries-count-toward-mech-activity)
     - [9. StakingAirdrop.claimAll strands a zero-multisig entitlement](#9-stakingairdropclaimall-strands-a-zero-multisig-entitlement)
     - [10. StakingAirdrop pays a terminated service's parked multisig](#10-stakingairdrop-pays-a-terminated-services-parked-multisig)
     - [11. Contributors existing-service stake path does not enforce the OLAS staking token](#11-contributors-existing-service-stake-path-does-not-enforce-the-olas-staking-token)
+    - [12. RegistryTracker registration can revive a service past the inactivity eviction threshold](#12-registrytracker-registration-can-revive-a-service-past-the-inactivity-eviction-threshold)
+    - [13. DualStakingToken applies a fixed second-token amount regardless of service size](#13-dualstakingtoken-applies-a-fixed-second-token-amount-regardless-of-service-size)
 
 ## Involved contracts and level of the bugs
 
@@ -151,16 +153,24 @@ This is a loss of the staker's **own** reward; there is no third-party loss or p
 unstake/checkpoint (or checkpoint before clearing), so the pending period is credited first.
 
 
-### 5. RequesterActivityChecker (V1) under-counts signed deliveries
+### 5. RequesterActivityChecker (V1) under-counts requests not backed one-for-one by Safe nonce growth
 
 **Severity**: Low
 **Source**: internal review
 
 The V1 `RequesterActivityChecker` reports `[Safe nonce, mapRequestCounts(requester)]` and requires the
-request-count delta to be backed by the requester Safe's nonce growth. In the signed-delivery flow the mech
-operator settles authenticated requests without executing the requester Safe, so `mapRequestCounts` advances
-while the Safe nonce does not, and the V1 ratio check returns false at checkpoint time — withholding staking
-rewards and accruing inactivity for a requester staking instance configured with V1.
+request-count delta to be backed by the requester Safe's nonce growth — in effect assuming **one request per
+Safe transaction**. Any legitimate flow that breaks that one-for-one relationship fails the ratio check at
+checkpoint time, withholding staking rewards and accruing inactivity toward eviction for a requester staking
+instance configured with V1. Two such flows exist:
+
+- **Signed delivery.** The mech operator settles authenticated requests without executing the requester
+  Safe, so `mapRequestCounts` advances while the Safe nonce does not.
+- **Batched requests.** A Safe-backed `requestBatch()` legitimately creates several requests in a single
+  transaction, so the request count advances by *n* while the nonce advances by one.
+
+Both are the same defect — the nonce is not a proxy for request volume — and neither involves any
+misbehaviour by the requester.
 
 **This is superseded and not in use.** `RequesterActivityCheckerV2` deliberately drops the nonce-backing
 requirement — the requests count alone determines the activity signal — and is the checker used by the
@@ -274,3 +284,41 @@ independently holds pooled OLAS, and the deployed Contributors proxy holds none 
 deprecated). At worst the pattern swaps `D` of the native asset for `D` of OLAS, bounded by whatever OLAS the
 proxy transiently holds. The fix is to enforce `stakingToken == olas` on the existing-service `stake()` path,
 mirroring the create path, so a native instance can never be staked through Contributors.
+
+### 12. RegistryTracker registration can revive a service past the inactivity eviction threshold
+
+**Severity**: Low
+
+`RegistryTracker.registerServiceMultisig()` reads `getStakingState()` **before** it forces `checkpoint()`.
+The ordering matters: a service that has already crossed `maxInactivityDuration` but has not yet been
+checkpointed is still reported as staked at the moment registration is evaluated. Registration then writes a
+fresh tracker timestamp, and the checkpoint that follows reads the overdue interval as active — so the
+service avoids eviction and is credited a reward window it should not have earned.
+
+Nothing here is exclusive to an attacker: the service owner is rescuing their own service rather than taking
+from an identified victim, and the cost falls on the emissions pool shared by honest stakers. The window is
+bounded by one inactivity interval per occurrence, and it only opens when a service sits past the threshold
+with no checkpoint yet — a state that arises routinely rather than one that has to be engineered.
+
+**Mitigation.** Force `checkpoint()` before reading `getStakingState()` in `registerServiceMultisig()`, so
+eviction is settled against the real elapsed interval before any tracker timestamp is written. Operationally,
+checkpointing promptly closes the window in the meantime.
+
+### 13. DualStakingToken applies a fixed second-token amount regardless of service size
+
+**Severity**: Informational
+
+`DualStakingToken` snapshots a single immutable `secondTokenAmount` derived from `minStakingDeposit` and
+applies it to every service, while the underlying staking flow accepts service deposits and agent bonds **at
+or above** that minimum. A service staking well above the minimum therefore posts the same fixed second-token
+principal as a minimum-sized one, so the proportional-collateral relationship the dual-staking design implies
+does not hold across the range.
+
+No funds are at risk and no unbacked rewards are issued: the second token is collateral rather than a reward
+input, the dual gate is never bypassed, and every service still posts at least the required amount. What is
+absent is proportionality at the top of the range.
+
+**Mitigation.** This is a design property rather than a defect, and changing it is a deliberate choice: scale
+`secondTokenAmount` with the service's actual OLAS deposit rather than with the configured minimum, on any
+future `DualStakingToken` revision. Until then, size `minStakingDeposit` with the understanding that the
+second-token requirement does not grow with the services that stake above it.
