@@ -307,6 +307,21 @@ async function auditEntry(entry, context) {
     };
 
     if (!isDeployed) {
+        // ethers throws "invalid BigNumber value (value=undefined)" for a field the config omits,
+        // which names neither the field nor the file. Say which is missing and move on.
+        const requiredForEmissions = ["rewardsPerSecond", "maxNumServices", "timeForEmissions"];
+        const missing = requiredForEmissions.filter((k) => stakingParams[k] === undefined);
+        if (missing.length > 0) {
+            stats.errors += 1;
+            console.error("Skipping emissions check: stakingParams is missing " + missing.join(", "));
+            console.log("\n");
+            await checkActivityCheckerLivenessRatio(
+                activityCheckerFromConfig,
+                "ActivityChecker " + activityCheckerFromConfig + ", chain: " + params.providerName
+            );
+            return;
+        }
+
         const rewardsPerSecond = ethers.BigNumber.from(stakingParams.rewardsPerSecond);
         const maxNumServices = ethers.BigNumber.from(stakingParams.maxNumServices);
         const timeForEmissions = ethers.BigNumber.from(stakingParams.timeForEmissions);
@@ -434,7 +449,18 @@ async function main() {
     const walletCache = new Map();
     for (const entry of selected) {
         // Process sequentially to keep logs grouped by config and avoid RPC bursts.
-        await auditEntry(entry, { dispenserLimit, walletCache, mnemonic, stats });
+        // One unusable config must cost that config, not the run. The on-chain branch of
+        // auditEntry() has its own try/catch, but the local branch does not, so anything that
+        // throws there propagated out of main() and every remaining config went unaudited -
+        // and the Summary below, which is the whole point of --all, was never printed.
+        try {
+            await auditEntry(entry, { dispenserLimit, walletCache, mnemonic, stats });
+        } catch (error) {
+            stats.errors += 1;
+            console.error("Error while auditing", toPosixPath(path.relative(process.cwd(), entry.filePath)));
+            console.error(error);
+            console.log("\n");
+        }
     }
 
     console.log("\nSummary");
