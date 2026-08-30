@@ -6,7 +6,7 @@
 - [Vulnerabilities](#vulnerabilities)
     - [1. RegistryTracker registration replay is keyed by multisig, not service Id](#1-registrytracker-registration-replay-is-keyed-by-multisig-not-service-id)
     - [2. RegistryTracker accepts a disabled staking instance](#2-registrytracker-accepts-a-disabled-staking-instance)
-    - [3. DualStakingToken.restake discards the base staking reward](#3-dualstakingtokenrestake-discards-the-base-staking-reward)
+    - [3. DualStakingToken cannot forward the base OLAS reward it receives](#3-dualstakingtoken-cannot-forward-the-base-olas-reward-it-receives)
     - [4. DualStakingToken.unstake clears the activity marker before the base checkpoint](#4-dualstakingtokenunstake-clears-the-activity-marker-before-the-base-checkpoint)
     - [5. RequesterActivityChecker (V1) under-counts requests not backed one-for-one by Safe nonce growth](#5-requesteractivitychecker-v1-under-counts-requests-not-backed-one-for-one-by-safe-nonce-growth)
     - [6. MechActivityChecker under-counts batched signed deliveries](#6-mechactivitychecker-under-counts-batched-signed-deliveries)
