@@ -17,6 +17,9 @@
     - [11. Contributors existing-service stake path does not enforce the OLAS staking token](#11-contributors-existing-service-stake-path-does-not-enforce-the-olas-staking-token)
     - [12. RegistryTracker registration can revive a service past the inactivity eviction threshold](#12-registrytracker-registration-can-revive-a-service-past-the-inactivity-eviction-threshold)
     - [13. DualStakingToken applies a fixed second-token amount regardless of service size](#13-dualstakingtoken-applies-a-fixed-second-token-amount-regardless-of-service-size)
+    - [14. RegistryTracker eligibility is a property of the Safe, not of the staking instance](#14-registrytracker-eligibility-is-a-property-of-the-safe-not-of-the-staking-instance)
+    - [15. A partial unstake record can be overwritten, stranding the earlier service NFT](#15-a-partial-unstake-record-can-be-overwritten-stranding-the-earlier-service-nft)
+    - [16. `Contributors.increaseActivity` is unvalidated beyond the writer allowlist](#16-contributorsincreaseactivity-is-unvalidated-beyond-the-writer-allowlist)
 
 ## Involved contracts and level of the bugs
 
@@ -67,9 +70,14 @@ The key is the multisig address, not the `serviceId`. A service that is unstaked
 re-deployed with a fresh whitelisted Safe presents a new multisig whose registration time is zero, so it can
 register again under the same `serviceId` and be marked eligible for another initial-reward window.
 
-`RegistryTracker` holds no funds and distributes nothing on-chain: `isStakingRewardEligible(multisig)` is an
-eligibility view consumed off-chain by the initial-reward campaign. The exposure is therefore one off-chain
-campaign payout per replay, bounded by the cost of a full re-deploy cycle; there is no on-chain drain.
+`RegistryTracker` itself holds no funds. It does not follow that the exposure is off-chain only:
+`RegistryTrackerActivityChecker.isRatioPass` calls `isStakingRewardEligible(multisig)` directly, and because
+it is an `IActivityChecker`, `StakingBase` invokes it at every checkpoint. Wherever that checker is wired
+into a funded staking instance, a replayed eligibility marker therefore translates into **on-chain staking
+rewards paid from `availableRewards`**, not merely into an off-chain campaign payout.
+
+The tracker is not deployed at present, so the current exposure is zero; the bound above describes the
+configuration this contract is designed for, and applies as soon as it is deployed.
 
 **Mitigation.** Off-chain, the reward campaign can de-duplicate by `serviceId`. On a future RegistryTracker
 revision, additionally gate registration on the `serviceId` (e.g. a `mapServiceIdRegistered[serviceId]`
@@ -94,13 +102,15 @@ if (instanceParams.implementation == address(0)) {
 — which does return `false` for a disabled instance — is not used. A service staked before disablement can
 therefore register after disablement and be marked eligible.
 
-Same eligibility-oracle bound as entry 1 (off-chain campaign payout only, no on-chain funds at risk).
+Same bound as entry 1: because `RegistryTrackerActivityChecker` consumes the eligibility view on-chain, a
+marker obtained on a disabled instance is read by `StakingBase` at checkpoint and can be paid from a funded
+instance's `availableRewards`. Not deployed at present, so the exposure is currently zero.
 
 **Mitigation.** On a future RegistryTracker revision, call `StakingFactory.verifyInstance(stakingInstance)`
 (or additionally check `instanceParams.isEnabled`) instead of the bare implementation check. Off-chain, the
 campaign can exclude disabled instances in the interim.
 
-### 3. `DualStakingToken.restake` discards the base staking reward
+### 3. `DualStakingToken` cannot forward the base OLAS reward it receives
 
 **Severity**: Low
 **Source**: internal review
@@ -122,11 +132,22 @@ conversion for it is lost when the service is re-staked. Because `restake` is th
 service in dual-staking after eviction (`unstake` withdraws it entirely), a staker who wants to continue is
 forced to forfeit the conversion.
 
-This is a loss of the staker's **own** derived second-token reward — there is no third-party loss and no
-protocol drain, and a staker can `unstake` (which does convert) and re-stake manually as a workaround.
+`restake()` is the clearest case, but it is not the only one, and "discarded" understates what happens.
+Because the adapter stakes through the one-argument `stake(uint256)` selector, `StakingBase` records the
+**adapter** as `sInfo.owner`, so the owner share of every base reward is transferred to the adapter — on a
+positive `claim()` and on an ordinary `unstake()` as well as on `restake()`.
 
-**Mitigation.** On a future DualStakingToken revision, capture the reward returned by the base `unstake` in
-`restake()` and run `_claim(multisig, reward)` before re-staking, mirroring `unstake()`.
+The adapter has no way to move it on. Every value transfer it performs is either `secondToken` or the
+service NFT; `_claim` computes a second-token amount from the base reward as a *scalar* and pays that from
+its own balance, and there is no OLAS transfer, sweep, or owner rescue anywhere in the contract. OLAS that
+arrives is therefore **unrecoverable**, not merely unconverted.
+
+There is no third-party loss and no protocol drain — the value at stake is the staker's own derived reward
+— and `DualStakingToken` is not deployed on any network, so nothing is currently trapped.
+
+**Mitigation.** On a future DualStakingToken revision, forward the base OLAS reward wherever it is realised
+— `claim()`, `unstake()` and `restake()` — to the service beneficiary, rather than leaving it on the
+adapter. Failing that, an owner-restricted OLAS sweep would at least make an arriving balance recoverable.
 
 ### 4. `DualStakingToken.unstake` clears the activity marker before the base checkpoint
 
@@ -322,3 +343,101 @@ absent is proportionality at the top of the range.
 `secondTokenAmount` with the service's actual OLAS deposit rather than with the configured minimum, on any
 future `DualStakingToken` revision. Until then, size `minStakingDeposit` with the understanding that the
 second-token requirement does not grow with the services that stake above it.
+
+### 14. RegistryTracker eligibility is a property of the Safe, not of the staking instance
+
+**Severity**: Low
+**Source**: internal review
+
+`registerServiceMultisig(serviceId, stakingInstance)` validates the staking instance thoroughly — matching
+service registry, non-zero implementation, `Staked` state, an allowlisted activity-checker codehash — and
+then records only:
+
+```solidity
+mapMultisigRegisteringTime[serviceInfo.multisig] = block.timestamp;
+```
+
+Every check performed on `stakingInstance` is discarded once it passes. `isStakingRewardEligible(address
+multisig)` takes no instance argument, and `RegistryTrackerActivityChecker` cannot supply one either — its
+nonce *is* the Safe address (`nonces[0] = uint256(uint160(multisig))`), and `isRatioPass` decodes that and
+asks the tracker.
+
+An eligibility marker is therefore global to the Safe: one registration made in instance A is simultaneously
+valid in every compatible instance for the whole `rewardPeriod`, and a service can stake into instance B and
+be paid there with no registration in B ever having occurred. Unlike entries 1 and 2 this needs no rotation,
+no disabled instance and no second registration.
+
+Not deployed at present, so the exposure is currently zero.
+
+**Mitigation.** On a future revision, key eligibility by `(multisig, stakingInstance)` rather than by
+multisig alone, or record the instance alongside the timestamp and have the checker assert it matches. Note
+this is complementary to entries 1 and 2 rather than covered by them — a `serviceId` gate does not close it,
+because the reuse involves no second registration.
+
+### 15. A partial unstake record can be overwritten, stranding the earlier service NFT
+
+**Severity**: Low
+**Source**: internal review
+
+`Contributors.unstake(false)` deliberately parks a service for later collection: it clears `multisig` and
+`stakingInstance` but keeps `socialId` and `serviceId`, so `pullUnbondedService()` can find it afterwards.
+The contract continues to hold the NFT.
+
+Both re-stake paths, however, guard only on the multisig:
+
+```solidity
+ServiceInfo storage serviceInfo = mapAccountServiceInfo[msg.sender];
+if (serviceInfo.multisig != address(0)) {
+    revert ServiceAlreadyStaked(socialId, serviceInfo.serviceId, serviceInfo.multisig);
+}
+```
+
+After a partial unstake that field is zero, so the guard passes even though a parked `serviceId` is present,
+and the subsequent whole-struct assignment overwrites it. `pullUnbondedService()` then reads the
+replacement's `serviceId` and additionally requires `multisig == address(0)`, which the freshly staked
+replacement does not satisfy — and unstaking the replacement only makes it pull the replacement. The earlier
+service NFT, and the deposit and bonds tied up in it, are unreachable in every subsequent state.
+
+No attacker is involved: the account does this to itself by parking one service and then staking another,
+which the contract permits without warning.
+
+**Mitigation.** Guard the re-stake paths on `serviceId != 0` alongside the existing `multisig` check, which
+forces `pullUnbondedService()` first — the sequence already implemented. Supporting more than one service per
+account would instead require keying the record by `serviceId`, which is a deliberate design change rather
+than a fix.
+
+### 16. `Contributors.increaseActivity` is unvalidated beyond the writer allowlist
+
+**Severity**: Low
+**Source**: internal review
+
+`increaseActivity` checks that the caller is an allowlisted writer and then performs no further validation
+at all:
+
+```solidity
+if (!mapContributeAgents[msg.sender]) {
+    revert UnauthorizedAccount(msg.sender);
+}
+...
+for (uint256 i = 0; i < multisigs.length; ++i) {
+    mapMutisigActivities[multisigs[i]] += activityChanges[i];
+}
+```
+
+There is no check that a target multisig belongs to the caller, that it is a contributor service at all, and
+no bound on the delta. A single allowlisted address can therefore write arbitrary activity to arbitrary
+multisigs, which `ContributeActivityChecker` reports as genuine and `StakingBase` pays for.
+
+The allowlist is owner-managed and nothing in the contract ties an entry to a registered service, so an
+entry that is not a current contribute service can only arise from an owner-side mistake — not from any
+attacker action and not from the ordinary service lifecycle, which re-deploys through the same-address
+multisig creator and so does not rotate the Safe. The live allowlist holds exactly one entry, the current
+contribute service.
+
+This is therefore operational hygiene rather than a reachable defect — but the write authority is much
+broader than the role requires, which is what turns an administrative slip into forged rewards for unrelated
+services.
+
+**Mitigation.** Bound `increaseActivity` to the caller's own multisig rather than accepting an arbitrary
+list, so that an allowlist mistake cannot affect services the caller has nothing to do with.
+
