@@ -439,8 +439,17 @@ This is therefore operational hygiene rather than a reachable defect — but the
 broader than the role requires, which is what turns an administrative slip into forged rewards for unrelated
 services.
 
+**The same authority also runs downward.** Because the delta is unbounded, a write can push a target's
+counter high enough that `ContributeActivityChecker.isRatioPass` overflows on `(curNonces[0] -
+lastNonces[0]) * 1e18`. `StakingBase` reaches the checker by `staticcall` and accepts a result only when the
+call succeeds and returns a `bool`, so the failure is contained — the instance is not bricked — but
+`ratioPass` becomes `false` and the affected service silently loses liveness credit and can be evicted. The
+same entry therefore covers both forging rewards for a service and destroying them for one.
+
 **Mitigation.** Bound `increaseActivity` to the caller's own multisig rather than accepting an arbitrary
-list, so that an allowlist mistake cannot affect services the caller has nothing to do with.
+list, so that an allowlist mistake cannot affect services the caller has nothing to do with. That single
+bound closes both directions; a cap on the delta alone would blunt the overflow without stopping the
+cross-service write.
 
 ### 17. `MechActivityChecker` requires a Safe transaction alongside every delivery
 
