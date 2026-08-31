@@ -1,5 +1,8 @@
 # Autonolas Staking Programmes
 
+## Bounty Program
+:mega::satellite::boom: The Autonolas bounty program and its details are available [here](https://immunefi.com/bounty/autonolas/).
+
 ## Introduction
 This repository contains the Autonolas Staking Programmes set of contracts. It is built on top of a core service staking
 functionality of [autonolas-registries](https://github.com/valory-xyz/autonolas-registries).
@@ -73,6 +76,17 @@ ETHERSCAN_API_KEY=<key> python scripts/deployment/move_unnominated_to_legacy.py
 
 The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/abis).
 Each folder there contains contracts compiled with the solidity version before their deployment.
+
+### Static audit of the deployed setup
+Staking programmes are many small deployments rather than one address set per chain, so this repository has
+no single `docs/configuration.json`. The audit script instead reads the per-deployment
+`scripts/deployment/globals_*.json` files and checks each configured staking instance against its live
+on-chain state. See [`scripts/audit_staking_setups/README.md`](./scripts/audit_staking_setups/README.md)
+for the required environment, then:
+```
+./scripts/audit_staking_setups/run.sh
+```
+Use the `--all` mode to sweep every committed configuration in one run.
 
 ### Audits
 The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits).
