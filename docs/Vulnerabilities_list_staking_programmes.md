@@ -20,6 +20,7 @@
     - [14. RegistryTracker eligibility is a property of the Safe, not of the staking instance](#14-registrytracker-eligibility-is-a-property-of-the-safe-not-of-the-staking-instance)
     - [15. A partial unstake record can be overwritten, stranding the earlier service NFT](#15-a-partial-unstake-record-can-be-overwritten-stranding-the-earlier-service-nft)
     - [16. `Contributors.increaseActivity` is unvalidated beyond the writer allowlist](#16-contributorsincreaseactivity-is-unvalidated-beyond-the-writer-allowlist)
+    - [17. `MechActivityChecker` requires a Safe transaction alongside every delivery](#17-mechactivitychecker-requires-a-safe-transaction-alongside-every-delivery)
 
 ## Involved contracts and level of the bugs
 
@@ -441,3 +442,37 @@ services.
 **Mitigation.** Bound `increaseActivity` to the caller's own multisig rather than accepting an arbitrary
 list, so that an allowlist mistake cannot affect services the caller has nothing to do with.
 
+### 17. `MechActivityChecker` requires a Safe transaction alongside every delivery
+
+**Severity**: Low
+**Source**: internal review
+
+`MechActivityChecker` reads two counters and requires **both** to have advanced:
+
+```solidity
+nonces[0] = IMultisig(multisig).nonce();
+nonces[1] = IMechMarketplace(mechMarketplace).mapMechServiceDeliveryCounts(multisig);
+...
+if (ts > 0 && curNonces[0] > lastNonces[0] && curNonces[1] > lastNonces[1]) {
+    ...
+    if (diffRequestsCounts <= diffNonces) { ... }
+}
+```
+
+A mech operator delivering through the supported ERC-4337 path settles real marketplace work without
+producing a Safe transaction. The delivery counter advances; the Safe nonce does not. The conjunction
+therefore fails and the checker reports inactivity for a window in which the service did genuine work.
+Sustained use of that execution path can accrue enough inactivity to evict the service.
+
+The deliveries are not invisible — `mapMechServiceDeliveryCounts` records them. What fails is the
+requirement that a Safe nonce move as well, and the following `diffRequestsCounts <= diffNonces` guard
+encodes the same assumption: that each delivery is accompanied by one Safe transaction. That assumption
+holds for the Safe execution path and not for ERC-4337.
+
+No attacker is involved and nobody gains — the loss falls on the operator whose work is discounted.
+
+**Mitigation.** Until the checker is revised, operators using the ERC-4337 delivery path should ensure at
+least one Safe transaction lands in each liveness window, or use the Safe execution path for staked
+services. A revision should decide deliberately whether Safe-nonce movement is still required evidence:
+accepting either counter, or keying liveness on the delivery counter alone, removes the mismatch, and the
+`diffRequestsCounts <= diffNonces` bound needs revisiting with it.
