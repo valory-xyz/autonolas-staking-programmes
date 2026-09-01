@@ -22,6 +22,7 @@
     - [16. `Contributors.increaseActivity` is unvalidated beyond the writer allowlist](#16-contributorsincreaseactivity-is-unvalidated-beyond-the-writer-allowlist)
     - [17. `MechActivityChecker` requires a Safe transaction alongside every delivery](#17-mechactivitychecker-requires-a-safe-transaction-alongside-every-delivery)
 
+    - [18. Airdrop allocations accept service IDs that do not exist yet](#18-airdrop-allocations-accept-service-ids-that-do-not-exist-yet)
 ## Involved contracts and level of the bugs
 
 This document records known issues in the `autonolas-staking-programmes` contracts, each paired with
@@ -446,10 +447,19 @@ call succeeds and returns a `bool`, so the failure is contained — the instance
 `ratioPass` becomes `false` and the affected service silently loses liveness credit and can be evicted. The
 same entry therefore covers both forging rewards for a service and destroying them for one.
 
+**The damage can also be made permanent.** A write large enough to drive a target's counter to the top of
+its range is still decoded and stored by `StakingBase` as that service's new baseline — the `staticcall` is
+deliberately tolerant so a failing checker can never revert a stake, and nothing bounds the nonces it
+accepts. Once such a baseline is recorded, subsequent genuine activity cannot produce a passing ratio
+against it, so the service does not merely lose one liveness window: it cannot regain liveness at all and is
+evicted in due course. That makes this the third direction of the same authority — forge rewards, destroy
+one window, or destroy them permanently.
+
 **Mitigation.** Bound `increaseActivity` to the caller's own multisig rather than accepting an arbitrary
 list, so that an allowlist mistake cannot affect services the caller has nothing to do with. That single
-bound closes both directions; a cap on the delta alone would blunt the overflow without stopping the
-cross-service write.
+bound closes all three directions; a cap on the delta alone would blunt the overflow without stopping the
+cross-service write, and a sanity bound on nonces accepted as a baseline would limit the permanent case
+without addressing either of the others.
 
 ### 17. `MechActivityChecker` requires a Safe transaction alongside every delivery
 
@@ -485,3 +495,26 @@ least one Safe transaction lands in each liveness window, or use the Safe execut
 services. A revision should decide deliberately whether Safe-nonce movement is still required evidence:
 accepting either counter, or keying liveness on the delivery counter alone, removes the mismatch, and the
 `diffRequestsCounts <= diffNonces` bound needs revisiting with it.
+
+### 18. Airdrop allocations accept service IDs that do not exist yet
+
+**Severity**: Low
+**Source**: internal review
+
+`StakingAirdrop` records an allocation against a `serviceId` without checking that the service exists or
+binding the allocation to an intended recipient:
+
+```solidity
+mapping(uint256 => uint256) public mapServiceIdAirdropAmount;
+```
+
+Service creation is permissionless and the registry assigns `totalSupply + 1`, so the next unallocated id is
+predictable. An allocation funded for an id that has not been created yet can therefore be captured by
+whoever creates that service first, and `claim()` pays the allocation to their multisig. The same
+predictability lets an attacker occupy a sequence of upcoming ids.
+
+The contract was built for a one-off distribution to services that already existed, which is why the check
+was never needed in practice — it holds no balance and no allocation is outstanding. The gap is that the
+contract does not enforce the scope it was designed for. Requiring `serviceId` to be within the registry's
+current supply when the allocation is written is a one-line bound that matches the intended use, and matters
+if the contract is ever reused for a further distribution.
