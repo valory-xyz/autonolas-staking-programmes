@@ -338,8 +338,24 @@ principal as a minimum-sized one, so the proportional-collateral relationship th
 does not hold across the range.
 
 No funds are at risk and no unbacked rewards are issued: the second token is collateral rather than a reward
-input, the dual gate is never bypassed, and every service still posts at least the required amount. What is
-absent is proportionality at the top of the range.
+input, and the dual gate is never bypassed. What is absent is proportionality at the top of the range.
+
+**With one exception at the bottom of the range: the required amount can itself be zero.** The constructor
+rejects only a zero ratio, while the amount it derives is a floored division:
+
+```solidity
+if (_stakeRatio == 0 || _rewardRatio == 0) { revert ZeroValue(); }
+...
+secondTokenAmount = (minStakingDeposit * (1 + numAgentInstances) * _stakeRatio) / 1e18;
+```
+
+so a small but positive `_stakeRatio` can round `secondTokenAmount` to `0`, and services then enter the
+dual path posting no second-token collateral at all — and can claim second-token rewards from a funded
+reserve on that basis. This is a deployment-parameter foot-gun rather than an attacker-controlled path:
+the degenerate value has to be chosen when the programme is deployed, and it is fixed thereafter.
+
+**Mitigation for this case**, which is cheaper than the proportionality question below: require the computed
+`secondTokenAmount` to be non-zero rather than only the ratio.
 
 **Mitigation.** This is a design property rather than a defect, and changing it is a deliberate choice: scale
 `secondTokenAmount` with the service's actual OLAS deposit rather than with the configured minimum, on any
