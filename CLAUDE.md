@@ -43,8 +43,8 @@ npx hardhat coverage
 
 - **`contracts/contribute/`** — Contributors staking system (UUPS proxy-upgradeable). `Contributors.sol` manages service creation/staking/unstaking/claims. `ContributeActivityChecker.sol` validates liveness via multisig nonce progression.
 - **`contracts/mech_usage/`** — AI agent mech activity checkers. `MechActivityChecker.sol` tracks mech marketplace deliveries. `RequesterActivityChecker.sol` and `RequesterSingleMechActivityChecker.sol` are requester-based variants.
-- **`contracts/registry_tracker/`** — Initial staking reward incentives with proxy pattern. `RegistryTracker.sol` + `RegistryTrackerProxy.sol`.
-- **`contracts/externals/`** — `DualToken` (dual staking token system), `Backland` (quorum-based voting activity checker).
+- **`contracts/externals/`** — `Backland` (quorum-based voting activity checker).
+- **`contracts/stale/`** — Built but never deployed: `dual_token/` (dual staking token system) and `registry_tracker/` (initial staking reward incentives with proxy pattern).
 - **`contracts/airdrop/`** — `StakingAirdrop` contracts.
 - **`contracts/interfaces/`** — Shared interfaces: `IStaking`, `IService`, `IToken`, `INFToken`, `IEAS`, `IErrors`.
 - **`contracts/libraries/`** — `SafeTransferLib` (assembly-optimized ERC20 transfers).

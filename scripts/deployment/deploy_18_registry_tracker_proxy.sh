@@ -33,7 +33,7 @@ rewardPeriod=$(jq -r '.rewardPeriod' $globals)
 proxyData=$(cast calldata "initialize(uint256)" $rewardPeriod)
 
 contractName="RegistryTrackerProxy"
-contractPath="contracts/registry_tracker/$contractName.sol:$contractName"
+contractPath="contracts/stale/registry_tracker/$contractName.sol:$contractName"
 constructorArgs="$registryTrackerAddress $proxyData"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
