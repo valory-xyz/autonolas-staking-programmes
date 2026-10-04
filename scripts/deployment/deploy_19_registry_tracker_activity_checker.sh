@@ -31,7 +31,7 @@ fi
 registryTrackerProxyAddress=$(jq -r '.registryTrackerProxyAddress' $globals)
 
 contractName="RegistryTrackerActivityChecker"
-contractPath="contracts/registry_tracker/$contractName.sol:$contractName"
+contractPath="contracts/stale/registry_tracker/$contractName.sol:$contractName"
 constructorArgs="$registryTrackerProxyAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 

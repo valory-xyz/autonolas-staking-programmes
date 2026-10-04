@@ -32,7 +32,7 @@ serviceRegistryAddress=$(jq -r '.serviceRegistryAddress' $globals)
 stakingFactoryAddress=$(jq -r '.stakingFactoryAddress' $globals)
 
 contractName="RegistryTracker"
-contractPath="contracts/registry_tracker/$contractName.sol:$contractName"
+contractPath="contracts/stale/registry_tracker/$contractName.sol:$contractName"
 constructorArgs="$serviceRegistryAddress $stakingFactoryAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
