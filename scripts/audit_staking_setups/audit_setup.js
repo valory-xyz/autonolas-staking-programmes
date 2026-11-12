@@ -348,14 +348,20 @@ async function auditEntry(entry, context) {
         const log = "Contract " + stakingTokenInstanceAddress + ", chain: " + params.providerName;
         const expectedImplementation = params.stakingTokenAddress?.trim();
         if (expectedImplementation) {
-            const stakingProxy = new ethers.Contract(stakingTokenInstanceAddress, STAKING_PROXY_ABI, wallet);
-            const observedImplementation = await stakingProxy.getImplementation();
-            customExpect(
-                observedImplementation.toLowerCase(),
-                expectedImplementation.toLowerCase(),
-                `${log}, staking implementation: expected ${expectedImplementation}, observed ${observedImplementation}`,
-                stats
-            );
+            try {
+                const stakingProxy = new ethers.Contract(stakingTokenInstanceAddress, STAKING_PROXY_ABI, wallet);
+                const observedImplementation = await stakingProxy.getImplementation();
+                customExpect(
+                    observedImplementation.toLowerCase(),
+                    expectedImplementation.toLowerCase(),
+                    `${log}, staking implementation: expected ${expectedImplementation}, observed ${observedImplementation}`,
+                    stats
+                );
+            } catch (error) {
+                stats.errors += 1;
+                console.error(`${log}, failed to read staking implementation (expected ${expectedImplementation})`);
+                console.error(error);
+            }
         } else {
             console.log(log + ", staking implementation unchecked: missing stakingTokenAddress");
         }
