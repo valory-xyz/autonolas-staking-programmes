@@ -12,6 +12,7 @@ const DEFAULT_MNEMONIC =
     "velvet deliver grief train result fortune travel voice over subject subject staff nominee bone name";
 const DEPLOYMENT_DIR = path.resolve(__dirname, "../deployment");
 const ACTIVITY_CHECKER_ABI = ["function livenessRatio() view returns (uint256)"];
+const STAKING_PROXY_ABI = ["function getImplementation() view returns (address)"];
 
 function printUsage() {
     console.log(`Usage:
@@ -277,8 +278,8 @@ async function auditEntry(entry, context) {
         return;
     }
 
-    const stakingTokenAddress = params.stakingTokenInstanceAddress || "";
-    const isDeployed = isDeployedAddress(stakingTokenAddress);
+    const stakingTokenInstanceAddress = params.stakingTokenInstanceAddress || "";
+    const isDeployed = isDeployedAddress(stakingTokenInstanceAddress);
     const activityCheckerFromConfig = stakingParams.activityChecker || "";
 
     const checkActivityCheckerLivenessRatio = async (activityCheckerAddress, logPrefix) => {
@@ -342,9 +343,29 @@ async function auditEntry(entry, context) {
 
     try {
         const wallet = getWallet(resolveNetworkURL(params), mnemonic, walletCache);
-        const stakingToken = await ethers.getContractAt("StakingToken", stakingTokenAddress, wallet);
+        const stakingToken = await ethers.getContractAt("StakingToken", stakingTokenInstanceAddress, wallet);
 
-        const log = "Contract " + stakingTokenAddress + ", chain: " + params.providerName;
+        const log = "Contract " + stakingTokenInstanceAddress + ", chain: " + params.providerName;
+        const expectedImplementation = params.stakingTokenAddress?.trim();
+        if (expectedImplementation) {
+            try {
+                const stakingProxy = new ethers.Contract(stakingTokenInstanceAddress, STAKING_PROXY_ABI, wallet);
+                const observedImplementation = await stakingProxy.getImplementation();
+                customExpect(
+                    observedImplementation.toLowerCase(),
+                    expectedImplementation.toLowerCase(),
+                    `${log}, staking implementation: expected ${expectedImplementation}, observed ${observedImplementation}`,
+                    stats
+                );
+            } catch (error) {
+                stats.errors += 1;
+                console.error(`${log}, failed to read staking implementation (expected ${expectedImplementation})`);
+                console.error(error);
+            }
+        } else {
+            console.log(log + ", staking implementation unchecked: missing stakingTokenAddress");
+        }
+
         const metadataHash = await stakingToken.metadataHash();
         customExpect(metadataHash, stakingParams.metadataHash, log + ", metadataHash", stats);
 
