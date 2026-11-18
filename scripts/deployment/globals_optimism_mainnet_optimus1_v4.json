@@ -40,5 +40,5 @@
   },
   "stakingTokenInstanceAddress": "",
   "name": "Optimus I (v0.4.0)",
-  "description": "This staking contract provides 44 slots for Optimus services on Optimism."
+  "description": "Staking contract for users running Optimus agents in Pearl. It requires 100 OLAS for staking."
 }

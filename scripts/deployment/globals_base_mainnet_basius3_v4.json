@@ -40,5 +40,5 @@
   },
   "stakingTokenInstanceAddress": "",
   "name": "Basius III (v0.4.0)",
-  "description": "This staking contract provides 44 slots for Basius services on Base."
+  "description": "Staking contract for users running Basius agents in Pearl. It requires 5000 OLAS for staking."
 }

@@ -38,5 +38,5 @@
   },
   "stakingTokenInstanceAddress": "",
   "name": "Polystrat VI (v0.4.0)",
-  "description": "This staking contract provides 44 slots for Olas Predict services on Polygon."
+  "description": "Staking contract for users running Polystrat agents in Pearl. It requires 10000 OLAS for staking."
 }
