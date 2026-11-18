@@ -19,7 +19,7 @@
   "requesterActivityCheckerAddress": "0x3514EeA47C03dF8d9FdD68A469908755d2870c48",
   "stakingFactoryAddress": "0xb0228CA253A88Bc8eb4ca70BCAC8f87b381f4700",
   "stakingParams": {
-    "metadataHash": "",
+    "metadataHash": "0x97621d04b0bd025ceef41a3d7fabfaa12656fb126de9107ac4b100b9c7111eee",
     "maxNumServices": "44",
     "rewardsPerSecond": "158548959919",
     "minStakingDeposit": "50000000000000000000",
