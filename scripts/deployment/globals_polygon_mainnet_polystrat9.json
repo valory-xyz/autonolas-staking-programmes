@@ -36,7 +36,7 @@
     "serviceRegistry": "0xE3607b00E75f6405248323A9417ff6b39B244b50",
     "activityChecker": "0x5B70A66fe68c4c86FFd724B58cc56049c70e9D3D"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0x1674997dA73Bfb3116aC251fF9E1dB2905D18223",
   "name": "Polystrat IX",
   "description": "Staking contract for users running Polystrat agents in Pearl. It requires 10000 OLAS for staking."
 }
