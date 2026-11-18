@@ -37,7 +37,7 @@
     "serviceRegistry": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
     "activityChecker": "0x3514EeA47C03dF8d9FdD68A469908755d2870c48"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0x9C254A169D71cFF6766D9702425Ec467B62B95EC",
   "name": "Omenstrat VIII",
   "description": "Staking contract for users running Omenstrat agents in Pearl. It requires 100 OLAS for staking."
 }
