@@ -38,7 +38,7 @@
     "serviceRegistry": "0x3d77596beb0f130a4415df3D2D8232B3d3D31e44",
     "activityChecker": "0x408dCA2b565f5eC7779C181870feFb51Ed67C3F4"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0xaDa8AFB446576483B791f58Da33b20ebd217c1fE",
   "name": "Optimus IV",
   "description": "Staking contract for users running Optimus agents in Pearl. It requires 100 OLAS for staking."
 }
