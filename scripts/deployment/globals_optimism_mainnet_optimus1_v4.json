@@ -39,6 +39,6 @@
     "activityChecker": "0x408dCA2b565f5eC7779C181870feFb51Ed67C3F4"
   },
   "stakingTokenInstanceAddress": "",
-  "name": "Optimus I (v0.4.0)",
+  "name": "Optimus I (v040)",
   "description": "Staking contract for users running Optimus agents in Pearl. It requires 100 OLAS for staking."
 }

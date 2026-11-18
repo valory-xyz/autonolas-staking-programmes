@@ -37,6 +37,6 @@
     "activityChecker": "0x5B70A66fe68c4c86FFd724B58cc56049c70e9D3D"
   },
   "stakingTokenInstanceAddress": "",
-  "name": "Polystrat VI (v0.4.0)",
+  "name": "Polystrat III (v040)",
   "description": "Staking contract for users running Polystrat agents in Pearl. It requires 10000 OLAS for staking."
 }

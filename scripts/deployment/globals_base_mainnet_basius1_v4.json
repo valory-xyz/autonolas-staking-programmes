@@ -39,6 +39,6 @@
     "activityChecker": "0xE73C4e90983aa65d42b2de968E0C8F25Ced835A8"
   },
   "stakingTokenInstanceAddress": "",
-  "name": "Basius I (v0.4.0)",
+  "name": "Basius I (v040)",
   "description": "Staking contract for users running Basius agents in Pearl. It requires 100 OLAS for staking."
 }
