@@ -38,7 +38,7 @@
     "serviceRegistry": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
     "activityChecker": "0xE73C4e90983aa65d42b2de968E0C8F25Ced835A8"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0x180E4A9A59BA5B6817fA0668A864343147E8A63b",
   "name": "Basius IV",
   "description": "Staking contract for users running Basius agents in Pearl. It requires 100 OLAS for staking."
 }
