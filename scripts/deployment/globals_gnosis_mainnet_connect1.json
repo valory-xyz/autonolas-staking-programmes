@@ -37,7 +37,7 @@
     "serviceRegistry": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
     "activityChecker": "0x3514EeA47C03dF8d9FdD68A469908755d2870c48"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0xe09B0b884A0d483f52BE854CdaaA59e0150bF9c2",
   "name": "Connect I",
   "description": "Staking contract for users running Connect agents in Pearl. It requires 5000 OLAS for staking."
 }

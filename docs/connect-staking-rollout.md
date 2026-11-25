@@ -1,6 +1,6 @@
 # Connect staking programmes
 
-Five proposed StakingToken v0.4.0 programmes, with 44 service slots each. The tiers
+Five deployed StakingToken v0.4.0 programmes, with 44 service slots each. The tiers
 match Omenstrat so Gnosis stakers can choose Connect at the corresponding deposit
 level. Programme numbering starts at I independently on each chain.
 
@@ -34,19 +34,23 @@ Gnosis reuses the existing V2 checker:
 - Checker: `0x3514EeA47C03dF8d9FdD68A469908755d2870c48`.
 - Marketplace: `0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB`.
 
-Robinhood needs a compatible checker on Robinhood. Deploy **one shared checker**
-for all three programmes, using the existing contract and deployment tooling:
+Robinhood uses **one deployed shared checker** for all three programmes:
 
+- Checker: `0x8d790f3ac75fD9c0F7fdB84fd09FE8CF7D0dBB6B`.
 - Contract: `contracts/mech_usage/RequesterActivityCheckerV2.sol:RequesterActivityCheckerV2`.
 - Constructor marketplace: `0xa45E64d13A30a51b91ae0eb182e88a40e9b18eD8`.
 - Constructor liveness ratio: `11337868480725`.
 
-The Robinhood `requesterActivityCheckerAddress` and
-`stakingParams.activityChecker` fields are deliberately empty pending that
-deployment. Set both fields to the same verified checker address in all three
-configs before creating any Robinhood staking instance. The existing
-`deploy_06_requester_activity_checker_v2.sh` updates only the selected file's
-top-level checker field, so the remaining fields still need updating afterwards.
+Both `requesterActivityCheckerAddress` and `stakingParams.activityChecker` contain
+this verified address in all three Robinhood configs. The checker reports VERSION
+`0.2.0`; the staking implementations report VERSION `0.4.0`. Its deployed runtime
+matches the reviewed build byte for byte, and the marketplace, liveness ratio and
+zero/one-request boundary checks passed. Source verification returned
+[`exact_match` on Sourcify](https://sourcify.dev/server/v2/verify/0d1e94c0-b423-4da4-8dd7-f70f01a0b879).
+The Blockscout API verification attempt was blocked by a Cloudflare challenge.
+The checker was deployed in transaction
+[`0x73e7852a22c1c6983aca0b8d3ff6c2251df520b489e8bde9eae416b82a1e079e`](https://robinhoodchain.blockscout.com/tx/0x73e7852a22c1c6983aca0b8d3ff6c2251df520b489e8bde9eae416b82a1e079e),
+at Robinhood block **122,958,725**. No additional checker deployment is needed.
 
 ## Metadata
 
@@ -56,11 +60,27 @@ newline. The digest is the SHA-256 part of a CIDv0 UnixFS dag-pb file, matching
 Launch's metadata format. The same calculation reproduces all 12 metadata hashes
 in the previously deployed PR #168 programmes.
 
-These files and hashes are prepared locally; their content has **not been
-published or pinned to IPFS by this PR preparation**. Publish each exact file and
-verify the returned CID/digest and gateway content before launch. If a name or
-description changes, regenerate the corresponding hash. Do not substitute a
-formatted or newline-terminated file while retaining the old digest.
+All five metadata files were retrieved from the IPFS gateway after deployment on
+25 November 2026, and their bytes matched these files exactly. Their on-chain
+metadata hashes match the configs. If a name or description changes, regenerate the
+corresponding hash. Do not substitute a formatted or newline-terminated file while
+retaining the old digest.
+
+## Deployments — 25 November 2026
+
+| Chain | Programme | Staking instance | Deployment block |
+|---|---|---|---:|
+| Gnosis | Connect I | [`0xe09B0b884A0d483f52BE854CdaaA59e0150bF9c2`](https://gnosisscan.io/address/0xe09B0b884A0d483f52BE854CdaaA59e0150bF9c2) | 49,459,887 |
+| Gnosis | Connect II | [`0xC6860D6127fa605403f1567513D9c6ebfB8A278A`](https://gnosisscan.io/address/0xC6860D6127fa605403f1567513D9c6ebfB8A278A) | 49,459,951 |
+| Robinhood | Connect I | [`0x228DC61b838D6eD82347a93aA2cd3e28544808Ea`](https://robinhoodchain.blockscout.com/address/0x228DC61b838D6eD82347a93aA2cd3e28544808Ea) | 122,964,934 |
+| Robinhood | Connect II | [`0x009Cda4D71c56Db6A1bac850483DB8E01D32884E`](https://robinhoodchain.blockscout.com/address/0x009Cda4D71c56Db6A1bac850483DB8E01D32884E) | 122,968,751 |
+| Robinhood | Connect III | [`0x7Bb72fa48b274672Cb6A362045cdCf470aEe99b2`](https://robinhoodchain.blockscout.com/address/0x7Bb72fa48b274672Cb6A362045cdCf470aEe99b2) | 122,969,851 |
+
+Each successful deployment receipt and factory event was checked against the
+expected deployer, implementation and exact config-derived calldata. Independent
+on-chain reads matched all staking parameters, the complete agent-ID array,
+registry, token utility, OLAS token and activity checker. Both staking
+implementations report VERSION `0.4.0`.
 
 ## Validation and remaining rollout
 
@@ -74,28 +94,40 @@ Read-only checks on 24 November 2026 confirmed:
 - Ethereum block 26,485,927: the current Dispenser has a nonzero Robinhood
   deposit processor (`0xb9dfcc6155ba4f211dcf8e6ecc9976be11bb7a77`).
 
-Validation of this draft passed five local config checks and two live Gnosis
+Predeployment validation passed five local config checks and two live Gnosis
 checker checks, with zero mismatches, warnings or errors. Read-only factory
-creation simulations for both Gnosis configs also passed at block 49,446,987.
-All five staking instance address fields remain empty. These checks do not
-establish an on-chain 1:1 audit of undeployed instances. Robinhood checker checks
-and factory creation simulations remain pending its checker deployment.
+creation simulations for both Gnosis configs passed at block 49,446,987. After
+the Robinhood checker deployment, all three Robinhood factory creation
+simulations passed against its actual deployed code, without state overrides.
+All five staking instance addresses are now recorded in the configs.
+
+The combined postdeployment static audit on 25 November 2026 passed **five
+on-chain staking checks and five activity-checker checks**, with **zero
+mismatches, warnings, errors or skips**. With dependencies and Hardhat artifacts
+available, run the same auditor from the repository root:
+
+```sh
+node scripts/audit_staking_setups/audit_setup.js \
+  --config scripts/deployment/globals_gnosis_mainnet_connect1.json \
+  --config scripts/deployment/globals_gnosis_mainnet_connect2.json \
+  --config scripts/deployment/globals_robinhood_mainnet_connect1.json \
+  --config scripts/deployment/globals_robinhood_mainnet_connect2.json \
+  --config scripts/deployment/globals_robinhood_mainnet_connect3.json
+```
 
 Before offering these programmes to users:
 
-1. Publish and verify the metadata, and deploy/verify the shared Robinhood
-   activity checker and update all six Robinhood checker address fields.
-2. Deploy the five staking proxies, record their addresses and run the full
-   on-chain static audit against their configs.
-3. Nominate them on the existing Ethereum VoteWeighting, review the expanded
+1. Complete the final review of these deployments and their audit results.
+2. Nominate them on the existing Ethereum VoteWeighting, review the expanded
    voting/funding plan, and verify rewards delivery.
-4. Add Connect staking support and these programme addresses to Pearl. Its
-   current main template still specifies `no_staking`, and Connect's staking
-   service methods are stubs. Contract deployment alone does not enable the
+3. Verify Connect staking support and these programme addresses in Pearl. The
+   pinned predeployment Pearl revision below specifies `no_staking`, and Connect's
+   staking service methods are stubs in that revision. Contract deployment alone does not enable the
    switching flow. These configs restrict agent ID 116; they do not make an old
    Omenstrat service with agent ID 25 eligible as a Connect service.
 
-No blockchain transactions are part of this config PR.
+Deployment is complete. Nomination, voting, rewards delivery and the Pearl
+switching flow remain separate rollout steps.
 
 ## Pinned sources
 

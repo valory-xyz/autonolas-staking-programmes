@@ -16,7 +16,7 @@
   "stakingTokenAddress": "0x5add592ce0a1B5DceCebB5Dcac086Cd9F9e3eA5C",
   "mechMarketplaceAddress": "0xa45E64d13A30a51b91ae0eb182e88a40e9b18eD8",
   "livenessRatio": "11337868480725",
-  "requesterActivityCheckerAddress": "",
+  "requesterActivityCheckerAddress": "0x8d790f3ac75fD9c0F7fdB84fd09FE8CF7D0dBB6B",
   "stakingFactoryAddress": "0x1BD1505B711Fb58C54ca3712e6BEf47A133892d9",
   "stakingParams": {
     "metadataHash": "0xdd2283cea535ad86f56da08043b2ba158c6bf8fd7a65ba3b472975eedeaa4ad9",
@@ -35,9 +35,9 @@
     "configHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "proxyHash": "0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
     "serviceRegistry": "0xE3607b00E75f6405248323A9417ff6b39B244b50",
-    "activityChecker": ""
+    "activityChecker": "0x8d790f3ac75fD9c0F7fdB84fd09FE8CF7D0dBB6B"
   },
-  "stakingTokenInstanceAddress": "",
+  "stakingTokenInstanceAddress": "0x228DC61b838D6eD82347a93aA2cd3e28544808Ea",
   "name": "Connect I",
   "description": "Staking contract for users running Connect agents in Pearl. It requires 100 OLAS for staking.",
   "blockscoutURL": "https://robinhoodchain.blockscout.com"
